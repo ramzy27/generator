@@ -1,0 +1,95 @@
+Yes, this format is compatible with Confluence. You can copy and paste the text directly into a Confluence page. However, you may need to make minor adjustments to ensure proper formatting, such as using Confluence's built-in headings, tables, and bullet points. Here's the revised version with some tweaks for better compatibility with Confluence:
+
+---
+
+# Project Proposal: Enhancing RISC Warehouse API for SAGRICS Integration
+
+## Introduction
+The goal of this project is to enhance the existing RISC Warehouse API to integrate data from the SAGRICS process. Currently, the SAGRICS data is populated in a separate BigQuery table with a different schema than the collation table used by the RISC Warehouse API. We have identified three potential approaches to achieve this integration.
+
+## Objectives
+- Evaluate the feasibility and effort required for each of the three proposed solutions.
+- Implement the chosen solution to ensure seamless querying of SAGRICS data through the RISC Warehouse API.
+- Maintain or improve the current functionality and performance of the RISC Warehouse API.
+
+## Scope
+**In-Scope:**
+- Adapting the SAGRICS injector code.
+- Modifying the RISC Warehouse API.
+- Creating new endpoints if necessary.
+
+**Out-of-Scope:**
+- Major architectural changes to the RISC Warehouse API.
+- Redesigning the existing schema of the collation table.
+
+## Stakeholders
+- **Project Sponsor:** [Name]
+- **Project Manager:** [Name]
+- **Development Team:** [Names]
+- **QA Team:** [Names]
+- **End Users:** [Names/Departments]
+
+## Proposed Solutions
+### Solution 1: Adapt SAGRICS Injector to Collation Table
+**Description:**  
+Adapt the code of the SAGRICS injector to be fully compatible with the collation table schema, including necessary RISC sense adjustments.
+
+**Pros:**
+- Direct integration with the existing collation table.
+- No need to modify the RISC Warehouse API endpoints.
+
+**Cons:**
+- Uncertainty about the availability of all required information.
+- Potential complexity in transforming data to fit the collation table schema.
+
+**Effort:**
+- High, due to schema compatibility adjustments and data transformation requirements.
+
+### Solution 2: Publish to a New Table with Shared Code
+**Description:**  
+Publish SAGRICS data to a new BigQuery table, sharing some code with the RISC Warehouse API, and create a new endpoint to handle this new table.
+
+**Pros:**
+- Easier to manage compatibility by using a new table.
+- Reduced complexity in modifying the SAGRICS injector.
+
+**Cons:**
+- Requires minimal development in the Warehouse API to add a new endpoint.
+- Maintenance of an additional endpoint.
+
+**Effort:**
+- Moderate, involving API endpoint creation and adjustments to shared code.
+
+## Timeline
+| Milestone            | Target Date  |
+|----------------------|--------------|
+| Project Kickoff      | [Date]       |
+| Solution Evaluation  | [Date]       |
+| Development Phase    | [Date]       |
+| Testing Phase        | [Date]       |
+| Deployment           | [Date]       |
+| Project Completion   | [Date]       |
+
+## Resources
+- **Personnel:** 2 developers for 2-3 weeks.
+- **Software:** Access to BigQuery, RISC Warehouse API codebase.
+- **Budget:** [Provide an estimated budget, if necessary].
+
+## Risks and Mitigations
+| Risk                              | Mitigation Strategy                   |
+|-----------------------------------|---------------------------------------|
+| Data compatibility issues         | Conduct thorough data analysis upfront |
+| Unexpected complexity in API changes | Plan for buffer time in the timeline |
+| Maintenance challenges            | Ensure clear documentation and code comments |
+
+## Next Steps
+- Review and discuss the proposed solutions.
+- Decide on the preferred solution based on feasibility and effort.
+- Begin development based on the chosen approach.
+
+## Conclusion
+Integrating the SAGRICS data with the RISC Warehouse API will enhance our data querying capabilities and streamline processes. By evaluating the proposed solutions and selecting the most feasible approach, we aim to achieve a seamless integration with minimal disruption to existing functionalities.
+
+---
+
+You can paste this directly into Confluence and then use the page formatting options to fine-tune headings, tables, and lists as needed.

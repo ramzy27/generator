@@ -1,0 +1,102 @@
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.CollectionReference;
+import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.Query;
+import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.cloud.firestore.QuerySnapshot;
+
+public class YourServiceTest {
+
+    @Mock
+    private Firestore firestore;
+
+    @Mock
+    private FirestoreConfig fireStoreConfig;
+
+    @Mock
+    private CollectionReference collectionReference;
+
+    @Mock
+    private Query query;
+
+    @Mock
+    private ApiFuture<QuerySnapshot> apiFuture;
+
+    @Mock
+    private QuerySnapshot querySnapshot;
+
+    @InjectMocks
+    private YourService yourService;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
+        when(fireStoreConfig.instance()).thenReturn(firestore);
+        when(firestore.collection(anyString())).thenReturn(collectionReference);
+    }
+
+    @Test
+    public void shouldGetJobMetadataByJobId() throws Exception {
+        String jobId = "testJobId";
+        List<QueryDocumentSnapshot> documents = new ArrayList<>();
+        QueryDocumentSnapshot documentSnapshot = mock(QueryDocumentSnapshot.class);
+        PostRiskEngineRequestModel model = new PostRiskEngineRequestModel();
+        
+        documents.add(documentSnapshot);
+
+        when(collectionReference.whereEqualTo("riskEngineJobUUID", jobId)).thenReturn(query);
+        when(query.orderBy("version", Query.Direction.DESCENDING)).thenReturn(query);
+        when(query.get()).thenReturn(apiFuture);
+        when(apiFuture.get()).thenReturn(querySnapshot);
+        when(querySnapshot.getDocuments()).thenReturn(documents);
+        when(documentSnapshot.toObject(PostRiskEngineRequestModel.class)).thenReturn(model);
+
+        PostRiskEngineRequestModel result = yourService.getJobMetadataByJobId(jobId);
+
+        assertNotNull(result);
+        assertEquals(model, result);
+    }
+
+    @Test
+    public void shouldReturnNullWhenNoDocumentsFound() throws Exception {
+        String jobId = "testJobId";
+        List<QueryDocumentSnapshot> documents = new ArrayList<>();
+
+        when(collectionReference.whereEqualTo("riskEngineJobUUID", jobId)).thenReturn(query);
+        when(query.orderBy("version", Query.Direction.DESCENDING)).thenReturn(query);
+        when(query.get()).thenReturn(apiFuture);
+        when(apiFuture.get()).thenReturn(querySnapshot);
+        when(querySnapshot.getDocuments()).thenReturn(documents);
+
+        PostRiskEngineRequestModel result = yourService.getJobMetadataByJobId(jobId);
+
+        assertNull(result);
+    }
+
+    @Test
+    public void shouldReturnNullOnException() throws Exception {
+        String jobId = "testJobId";
+
+        when(collectionReference.whereEqualTo("riskEngineJobUUID", jobId)).thenReturn(query);
+        when(query.orderBy("version", Query.Direction.DESCENDING)).thenReturn(query);
+        when(query.get()).thenReturn(apiFuture);
+        when(apiFuture.get()).thenThrow(new InterruptedException());
+
+        PostRiskEngineRequestModel result = yourService.getJobMetadataByJobId(jobId);
+
+        assertNull(result);
+    }
+}

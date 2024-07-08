@@ -1,3 +1,62 @@
+import com.google.api.core.ApiFuture;
+import com.google.api.core.ApiFutures;
+import com.google.cloud.firestore.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+
+@Service
+public class FirestoreMigrationService {
+
+    @Autowired
+    private Firestore firestore;
+
+    private static final String OLD_COLLECTION_NAME = "oldCollectionName";
+    private static final String NEW_COLLECTION_NAME = "newCollectionName";
+    private static final String OLD_JOB_ID_FIELD = "oldJobID";
+    private static final String JOB_TYPE_FIELD = "jobType";
+    private static final String COMPLETION_TIME_FIELD = "completionTime";
+
+    public void migrateData() throws ExecutionException, InterruptedException {
+        CollectionReference oldCollection = firestore.collection(OLD_COLLECTION_NAME);
+        CollectionReference newCollection = firestore.collection(NEW_COLLECTION_NAME);
+
+        ApiFuture<QuerySnapshot> querySnapshot = oldCollection.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+        List<ApiFuture<WriteResult>> futures = new ArrayList<>();
+
+        Timestamp fixedCompletionTime = Timestamp.ofTimeSecondsAndNanos(1640995200, 0); // Fixed date: 2022-01-01T00:00:00Z
+
+        for (DocumentSnapshot document : documents) {
+            String oldJobID = document.getString(OLD_JOB_ID_FIELD);
+            String jobType = document.getString(JOB_TYPE_FIELD);
+
+            if (oldJobID != null && jobType != null) {
+                // Build new data model
+                NewDataModel newDataModel = new NewDataModel();
+                newDataModel.setJobID(oldJobID);
+                newDataModel.setCompletionTime(fixedCompletionTime);
+                newDataModel.setJobType(jobType);
+
+                // Save to new collection
+                DocumentReference newDocRef = newCollection.document();
+                ApiFuture<WriteResult> future = newDocRef.set(newDataModel);
+                futures.add(future);
+            }
+        }
+
+        // Wait for all writes to complete
+        ApiFutures.allAsList(futures).get();
+
+        System.out.println("Data migration completed successfully.");
+    }
+}
+
+
 Yes, this format is compatible with Confluence. You can copy and paste the text directly into a Confluence page. However, you may need to make minor adjustments to ensure proper formatting, such as using Confluence's built-in headings, tables, and bullet points. Here's the revised version with some tweaks for better compatibility with Confluence:
 
 ---

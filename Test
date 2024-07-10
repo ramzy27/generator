@@ -1,3 +1,24 @@
+
+import java.util.stream.Collectors;
+
+// Assuming sqlServerPaginationRequest is an object of a class that has the getColumnPivot() method
+// and getColumnPivot() returns an object that has aggColumn(), pivotColumn(), and pivotValues() methods.
+
+String aggColumn = sqlServerPaginationRequest.getColumnPivot().aggColumn();
+String pivotColumn = sqlServerPaginationRequest.getColumnPivot().pivotColumn();
+String pivotValues = sqlServerPaginationRequest.getColumnPivot().pivotValues()
+                            .stream()
+                            .map(value -> "'" + value + "'")
+                            .collect(Collectors.joining(","));
+
+String pivotQuery = String.format(
+    "PIVOT (SUM(%s) FOR %s IN (%s))",
+    aggColumn, pivotColumn, pivotValues
+);
+
+// return the pivot query
+return pivotQuery;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 

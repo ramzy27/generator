@@ -1,4 +1,11 @@
+Set<String> riskNames = Stream.concat(
+    Arrays.stream(RiskMeasureName.values()).map(Enum::name),
+    Arrays.stream(RiskLabel.values()).map(Enum::name)
+).collect(Collectors.toSet());
 
+boolean hasMeasureColumns = sqlRequest.getValueCols().stream()
+    .map(columnVO -> columnVO.field())
+    .anyMatch(field -> riskNames.stream().anyMatch(field::contains));
 import java.util.stream.Collectors;
 
 // Assuming sqlServerPaginationRequest is an object of a class that has the getColumnPivot() method

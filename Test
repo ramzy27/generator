@@ -1,3 +1,14 @@
+List<RiskMeasureName> riskMeasureNames = Arrays.asList(RiskMeasureName.values());
+List<RiskLabel> riskLabels = Arrays.asList(RiskLabel.values());
+
+List<String> foundRiskMeasureNames = sqlRequest.getValueCols().stream()
+    .map(columnVO -> columnVO.field())
+    .flatMap(field -> Stream.concat(riskMeasureNames.stream(), riskLabels.stream())
+        .filter(riskMeasureName -> field.contains(riskMeasureName.name()))
+        .map(Enum::name))
+    .distinct()
+    .collect(Collectors.toList());
+
 Set<String> riskNames = Stream.concat(
     Arrays.stream(RiskMeasureName.values()).map(Enum::name),
     Arrays.stream(RiskLabel.values()).map(Enum::name)

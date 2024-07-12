@@ -1,3 +1,36 @@
+### JIRA: Organize Swagger UI, Fix Tests, and Refactor Code
+
+**Summary:** Organize controllers in sections in the Swagger UI, fix or update unit tests, and refactor code for better naming conventions and alignment.
+
+**Description:**
+- **Objective:** Improve the project's organization and maintainability by organizing Swagger UI, updating unit tests, and refactoring code.
+
+**Tasks:**
+1. **Organize Controllers in Swagger UI:**
+   - Group related controllers into sections for better readability in Swagger UI.
+   - Ensure each section is clearly labeled and accessible.
+
+2. **Fix Unit Tests:**
+   - Review all existing unit tests.
+   - Fix any failing or outdated tests.
+   - Delete unit tests that are no longer relevant or used.
+   - Add new unit tests where necessary to ensure coverage and reliability.
+
+3. **Refactor Code:**
+   - Review and refactor code to ensure collection names align with their purpose.
+   - Update any misleading or incorrect names in the codebase.
+   - Ensure consistency in naming conventions throughout the project.
+
+**Acceptance Criteria:**
+- Controllers are organized into clear sections in the Swagger UI.
+- All unit tests are reviewed, with outdated tests removed and new tests added as needed.
+- Code is refactored to ensure all names are accurate and aligned with their purpose.
+- The project is more maintainable and easier to navigate.
+
+---
+
+Feel free to copy and paste this JIRA description as needed. Let me know if you need any further adjustments or additional details.
+
 ### JIRA 1: Adapt Keycloak Configuration for LDAP Integration
 
 **Summary:** Adapt Keycloak configuration to integrate LDAP filters, groups, and populate them in the token. Modify the code to read these groups from the token.

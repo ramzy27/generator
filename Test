@@ -1,3 +1,90 @@
+### JIRA 1: Adapt Keycloak Configuration for LDAP Integration
+
+**Summary:** Adapt Keycloak configuration to integrate LDAP filters, groups, and populate them in the token. Modify the code to read these groups from the token.
+
+**Description:**
+- **Objective:** Enhance Keycloak configuration to support LDAP filters and groups.
+- **Tasks:**
+  1. Configure Keycloak to use LDAP as the user federation provider.
+  2. Set up LDAP filters to retrieve specific user attributes.
+  3. Define new LDAP groups and ensure they are included in the token.
+  4. Modify the application code to read and process these groups from the token.
+  5. Test the integration to ensure that the tokens contain the correct LDAP groups and attributes.
+
+**Acceptance Criteria:**
+- LDAP filters are correctly configured in Keycloak.
+- New LDAP groups are created and populated in the token.
+- The application successfully reads and processes the groups from the token.
+
+---
+
+### JIRA 2: Adapt SQL Query to Include User-Authorized Desks
+
+**Summary:** Adapt the SQL query to ensure it includes only the desks that the user is authorized to view.
+
+**Description:**
+- **Objective:** Modify the SQL query to filter results based on user authorization.
+- **Tasks:**
+  1. Identify the current SQL query used to retrieve desks.
+  2. Determine the authorization criteria for users.
+  3. Modify the SQL query to include a join or subquery that filters desks based on the user's authorization.
+  4. Test the updated query to ensure it returns only the desks the user is allowed to view.
+  5. Validate the changes with sample user scenarios to confirm the correctness of the filter.
+
+**Acceptance Criteria:**
+- The SQL query is updated to include user authorization checks.
+- Only desks the user is authorized to view are returned by the query.
+- The query is tested and validated with various user scenarios.
+
+---
+
+### JIRA 3: Enhance Cache Handling Based on User Group
+
+**Summary:** Modify cache handling to include user group information before processing requests.
+
+**Description:**
+- **Objective:** Improve the caching mechanism to consider the user group in the cache key.
+- **Tasks:**
+  1. Analyze the current caching mechanism to understand how user requests are cached.
+  2. Identify the process to determine the user’s group before processing the request.
+  3. Modify the caching logic to include the user group in the cache key/hash.
+  4. Ensure that the user group is correctly determined and incorporated into the cache key before any processing.
+  5. Test the updated caching mechanism to verify that requests are cached and retrieved based on user group.
+  6. Validate that the changes improve cache accuracy and efficiency.
+
+**Acceptance Criteria:**
+- The caching mechanism is updated to include the user group in the cache key.
+- User group information is correctly determined and used before processing requests.
+- The cache correctly handles and retrieves data based on the user group.
+- The updated cache mechanism is tested and validated for accuracy and efficiency.
+
+---
+
+### JIRA 4: Ensure Compatibility of User-Added Filters with Authorized Desk Filter
+
+**Summary:** Ensure that user-specified filters (e.g., DESk, EPI) work correctly with the authorized desk filter without conflicts.
+
+**Description:**
+- **Objective:** Modify the filtering logic to integrate user-specified filters with the authorized desk filter seamlessly.
+- **Tasks:**
+  1. Review the current filtering mechanism that processes user-specified filters.
+  2. Integrate the authorized desk filter into the filtering logic.
+  3. Ensure that the authorized desk filter is applied first, followed by any additional user-specified filters.
+  4. Modify the code to handle the combination of filters without conflicts.
+  5. Test various scenarios where users apply different filters to ensure they work correctly with the authorized desk filter.
+  6. Validate that the results respect both the user's authorized view and their additional filters.
+
+**Acceptance Criteria:**
+- The filtering logic correctly integrates the authorized desk filter with user-specified filters.
+- There are no conflicts between the authorized desk filter and additional user filters.
+- The query results are accurate and respect both the user's authorized view and their additional filters.
+- The solution is tested and validated for different filter combinations to ensure correctness.
+
+---
+
+Feel free to copy and paste these JIRA descriptions as needed. Let me know if you need any further assistance.
+
+
 List<RiskMeasureName> riskMeasureNames = Arrays.asList(RiskMeasureName.values());
 List<RiskLabel> riskLabels = Arrays.asList(RiskLabel.values());
 

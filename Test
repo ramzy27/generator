@@ -1,3 +1,144 @@
+
+import com.google.cloud.bigquery.*;
+import com.google.cloud.storage.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.*;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+public class BigQueryServiceTest {
+
+    @Mock
+    private BigQuery bigQuery;
+
+    @Mock
+    private Storage storage;
+
+    @InjectMocks
+    private BigQueryService bigQueryService;
+
+    private String query;
+    private String gcsUri;
+    private String bucketName;
+    private String prefix;
+    private String tableName;
+    private String datasetName;
+
+    @BeforeEach
+    void setUp() {
+        query = "SELECT * FROM `project.dataset.table`";
+        gcsUri = "gs://your-bucket-name/prefix/";
+        bucketName = "your-bucket-name";
+        prefix = "prefix/";
+        tableName = "temp_table_" + UUID.randomUUID().toString().replace("-", "_");
+        datasetName = "your_dataset";
+    }
+
+    @Test
+    void executeQueryAndExport_Success() throws InterruptedException {
+        // Mocking BigQuery and Storage interactions
+        TableId tableId = TableId.of(datasetName, tableName);
+        Table mockTable = mock(Table.class);
+        TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of());
+        Job mockQueryJob = mock(Job.class);
+        JobStatus mockJobStatus = mock(JobStatus.class);
+        ExtractJobConfiguration extractJobConfiguration = ExtractJobConfiguration.newBuilder(tableId, gcsUri).setFormat("CSV").build();
+        Job mockExtractJob = mock(Job.class);
+
+        when(bigQuery.create(any(JobInfo.class))).thenReturn(mockQueryJob);
+        when(mockQueryJob.waitFor()).thenReturn(mockQueryJob);
+        when(mockQueryJob.getStatus()).thenReturn(mockJobStatus);
+        when(mockJobStatus.getError()).thenReturn(null);
+        when(bigQuery.getTable(tableId)).thenReturn(mockTable);
+        when(mockTable.getDefinition()).thenReturn(tableDefinition);
+        when(bigQuery.update(any(TableInfo.class))).thenReturn(mockTable);
+        when(bigQuery.create(JobInfo.of(extractJobConfiguration))).thenReturn(mockExtractJob);
+        when(mockExtractJob.waitFor()).thenReturn(mockExtractJob);
+        when(mockExtractJob.getStatus()).thenReturn(mockJobStatus);
+        when(mockJobStatus.getError()).thenReturn(null);
+
+        // Execute the method
+        bigQueryService.executeQueryAndExport(query, gcsUri);
+
+        // Verify interactions
+        verify(bigQuery, times(2)).create(any(JobInfo.class));
+        verify(mockQueryJob).waitFor();
+        verify(mockExtractJob).waitFor();
+        verify(bigQuery).getTable(tableId);
+        verify(bigQuery).update(any(TableInfo.class));
+        verify(storage).list(bucketName, Storage.BlobListOption.prefix(prefix));
+    }
+
+    @Test
+    void executeQueryAndExport_QueryJobFails() throws InterruptedException {
+        // Mocking BigQuery and Storage interactions
+        Job mockQueryJob = mock(Job.class);
+        JobStatus mockJobStatus = mock(JobStatus.class);
+        when(bigQuery.create(any(JobInfo.class))).thenReturn(mockQueryJob);
+        when(mockQueryJob.waitFor()).thenReturn(mockQueryJob);
+        when(mockQueryJob.getStatus()).thenReturn(mockJobStatus);
+        when(mockJobStatus.getError()).thenReturn(new BigQueryError("query error", null, "details"));
+
+        // Execute the method and expect an exception
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            bigQueryService.executeQueryAndExport(query, gcsUri);
+        });
+
+        assertEquals("com.google.cloud.bigquery.BigQueryError@42", exception.getMessage());
+
+        // Verify interactions
+        verify(bigQuery).create(any(JobInfo.class));
+        verify(mockQueryJob).waitFor();
+    }
+
+    @Test
+    void executeQueryAndExport_ExtractJobFails() throws InterruptedException {
+        // Mocking BigQuery and Storage interactions
+        TableId tableId = TableId.of(datasetName, tableName);
+        Table mockTable = mock(Table.class);
+        TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of());
+        Job mockQueryJob = mock(Job.class);
+        JobStatus mockQueryJobStatus = mock(JobStatus.class);
+        ExtractJobConfiguration extractJobConfiguration = ExtractJobConfiguration.newBuilder(tableId, gcsUri).setFormat("CSV").build();
+        Job mockExtractJob = mock(Job.class);
+        JobStatus mockExtractJobStatus = mock(JobStatus.class);
+
+        when(bigQuery.create(any(JobInfo.class))).thenReturn(mockQueryJob);
+        when(mockQueryJob.waitFor()).thenReturn(mockQueryJob);
+        when(mockQueryJob.getStatus()).thenReturn(mockQueryJobStatus);
+        when(mockQueryJobStatus.getError()).thenReturn(null);
+        when(bigQuery.getTable(tableId)).thenReturn(mockTable);
+        when(mockTable.getDefinition()).thenReturn(tableDefinition);
+        when(bigQuery.update(any(TableInfo.class))).thenReturn(mockTable);
+        when(bigQuery.create(JobInfo.of(extractJobConfiguration))).thenReturn(mockExtractJob);
+        when(mockExtractJob.waitFor()).thenReturn(mockExtractJob);
+        when(mockExtractJob.getStatus()).thenReturn(mockExtractJobStatus);
+        when(mockExtractJobStatus.getError()).thenReturn(new BigQueryError("extract error", null, "details"));
+
+        // Execute the method and expect an exception
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            bigQueryService.executeQueryAndExport(query, gcsUri);
+        });
+
+        assertEquals("com.google.cloud.bigquery.BigQueryError@42", exception.getMessage());
+
+        // Verify interactions
+        verify(bigQuery, times(2)).create(any(JobInfo.class));
+        verify(mockQueryJob).waitFor();
+        verify(mockExtractJob).waitFor();
+    }
+}
+
+
 ### JIRA: Organize Swagger UI, Fix Tests, and Refactor Code
 
 **Summary:** Organize controllers in sections in the Swagger UI, fix or update unit tests, and refactor code for better naming conventions and alignment.

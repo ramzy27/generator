@@ -1,4 +1,35 @@
 
+public class BigQueryColumnNameSanitizer {
+    
+    public static String sanitizeColumnName(String columnName) {
+        // Replace '.' with '_'
+        columnName = columnName.replace('.', '_');
+        
+        // Replace other special characters with '_'
+        // BigQuery column names must start with a letter or underscore and can contain letters, numbers, or underscores
+        // This regex replaces any character that is not a letter, number, or underscore with '_'
+        columnName = columnName.replaceAll("[^a-zA-Z0-9_]", "_");
+
+        // Ensure the column name starts with a letter or underscore
+        if (!columnName.matches("^[a-zA-Z_].*")) {
+            columnName = "_" + columnName;
+        }
+
+        return columnName;
+    }
+
+    public static void main(String[] args) {
+        // Example usage
+        String originalColumnName = "example.column@name#";
+        String sanitizedColumnName = sanitizeColumnName(originalColumnName);
+        System.out.println("Original: " + originalColumnName);
+        System.out.println("Sanitized: " + sanitizedColumnName);
+    }
+}
+
+
+
+
 import com.google.cloud.bigquery.*;
 import com.google.cloud.storage.*;
 import org.junit.jupiter.api.BeforeEach;

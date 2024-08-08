@@ -1,4 +1,37 @@
+import java.util.Arrays;
+import java.util.List;
+import java.util.regex.Pattern;
 
+public class StringReplacer {
+
+    public static String replaceUnderscores(String input, List<MyEnum> enums) {
+        // Convert enum values to a list of strings
+        List<String> enumNames = enums.stream()
+                                      .map(Enum::name)
+                                      .collect(Collectors.toList());
+
+        // Check for the presence of any enum name in the input
+        return enumNames.stream()
+                        .filter(input::contains)
+                        .findFirst()
+                        .map(enumName -> {
+                            // If an enum is found, split, replace underscores, and join back
+                            return Arrays.stream(input.split(Pattern.quote(enumName), -1))
+                                         .map(part -> part.replace("_", "."))
+                                         .collect(Collectors.joining(enumName));
+                        })
+                        .orElse(input.replace("_", ".")); // If no enum is found, replace all underscores
+    }
+
+    public static void main(String[] args) {
+        String input = "some_ENUM_ONE_string_with_underscores";
+
+        // Call the method and pass the enum list
+        String result = replaceUnderscores(input, Arrays.asList(MyEnum.values()));
+
+        System.out.println(result);  // Output: some_ENUM_ONE.string.with.underscores
+    }
+}
 public class BigQueryColumnNameSanitizer {
     
     public static String sanitizeColumnName(String columnName) {

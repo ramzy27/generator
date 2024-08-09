@@ -1,3 +1,36 @@
+import java.awt.MouseInfo;
+import java.awt.Point;
+import java.awt.PointerInfo;
+import java.awt.Robot;
+import java.awt.event.InputEvent;
+
+public class MouseClick {
+
+	public static void main(String[] args) {
+
+		while (true) {
+			PointerInfo pointerInfo = MouseInfo.getPointerInfo();
+			Point point = pointerInfo.getLocation();
+			int x = (int) point.getX();
+			int y = (int) point.getY();
+
+			try {
+
+				Robot robot = new Robot();
+				robot.mouseMove(700, 300);
+				robot.mousePress(InputEvent.BUTTON1_MASK);
+				robot.mouseRelease(InputEvent.BUTTON1_MASK);
+				robot.mouseMove(x, y);
+
+				Thread.sleep(3 * 1000);
+
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
+	}
+}
+
 List<String> foundRiskMeasureNames = sqlRequest.getValueCols().stream() // Stream<ColumnVO>
     .map(ColumnVO::field) // Stream<String>
     .flatMap(field -> Stream.concat(riskMeasureNames.stream(), riskLabels.stream()) // Stream<Enum>

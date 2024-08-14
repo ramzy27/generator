@@ -1,3 +1,59 @@
+package com.example.config;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.Map;
+
+@Configuration
+@ConfigurationProperties(prefix = "v5")
+public class V5Config {
+
+    private TableConfig tableConfig;
+    private boolean officialDefault;
+
+    // Getters and Setters
+
+    public static class TableConfig {
+        private Map<String, TableDetail> tablePrefixMap;
+        private JoinConfig tableJoinMap;
+
+        // Getters and Setters
+    }
+
+    public static class TableDetail {
+        private String name;
+        private Map<String, String> recordColumns;
+
+        // Getters and Setters
+    }
+
+    public static class JoinConfig {
+        private String joinType;
+        private String joinCondition;
+
+        // Getters and Setters
+    }
+
+    // Getters and setters for the outer class fields
+    public TableConfig getTableConfig() {
+        return tableConfig;
+    }
+
+    public void setTableConfig(TableConfig tableConfig) {
+        this.tableConfig = tableConfig;
+    }
+
+    public boolean isOfficialDefault() {
+        return officialDefault;
+    }
+
+    public void setOfficialDefault(boolean officialDefault) {
+        this.officialDefault = officialDefault;
+    }
+}
+
+
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.PointerInfo;

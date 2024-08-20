@@ -1,4 +1,129 @@
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+public class WarehouseRequestTransformerTest {
+
+    private WarehouseRequestTransformer transformer;
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    public void setup() {
+        objectMapper = new ObjectMapper();
+        transformer = new WarehouseRequestTransformer(objectMapper);
+    }
+
+    @Test
+    public void testSimpleReplacement() {
+        // Given
+        WarehouseRequest request = new WarehouseRequest();
+        request.setName("Hello $name");
+        request.setDescription("This is a $key1 description.");
+
+        Map<String, List<Object>> replacementMap = Map.of(
+            "name", List.of("John Doe"),
+            "key1", List.of("simple")
+        );
+
+        // When
+        WarehouseRequest transformedRequest = transformer.transform(request, replacementMap);
+
+        // Then
+        assertEquals("Hello John Doe", transformedRequest.getName());
+        assertEquals("This is a simple description.", transformedRequest.getDescription());
+    }
+
+    @Test
+    public void testMultipleReplacementsInSingleField() {
+        // Given
+        WarehouseRequest request = new WarehouseRequest();
+        request.setDescription("This $key1 has $key2 and $key3.");
+
+        Map<String, List<Object>> replacementMap = Map.of(
+            "key1", List.of("object"),
+            "key2", List.of("some values"),
+            "key3", List.of("more values")
+        );
+
+        // When
+        WarehouseRequest transformedRequest = transformer.transform(request, replacementMap);
+
+        // Then
+        assertEquals("This object has some values and more values.", transformedRequest.getDescription());
+    }
+
+    @Test
+    public void testReplacementWithMultipleValues() {
+        // Given
+        WarehouseRequest request = new WarehouseRequest();
+        request.setName("$key1");
+        request.setDescription("This is $key2.");
+
+        Map<String, List<Object>> replacementMap = Map.of(
+            "key1", List.of("value1", "value2", "value3"),
+            "key2", List.of("one value")
+        );
+
+        // When
+        WarehouseRequest transformedRequest = transformer.transform(request, replacementMap);
+
+        // Then
+        assertEquals("value1, value2, value3", transformedRequest.getName());
+        assertEquals("This is one value.", transformedRequest.getDescription());
+    }
+
+    @Test
+    public void testNoReplacementForMissingKey() {
+        // Given
+        WarehouseRequest request = new WarehouseRequest();
+        request.setDescription("No replacement for $unknownKey.");
+
+        Map<String, List<Object>> replacementMap = Map.of(
+            "key1", List.of("replacement")
+        );
+
+        // When
+        WarehouseRequest transformedRequest = transformer.transform(request, replacementMap);
+
+        // Then
+        assertEquals("No replacement for $unknownKey.", transformedRequest.getDescription());
+    }
+
+    @Test
+    public void testNestedObjectReplacement() {
+        // Given
+        WarehouseRequest.NestedObject nested = new WarehouseRequest.NestedObject();
+        nested.setTitle("Nested title $key1");
+        nested.setList(List.of("Item1", "$key2"));
+
+        WarehouseRequest request = new WarehouseRequest();
+        request.setName("Name $name");
+        request.setNested(nested);
+
+        Map<String, List<Object>> replacementMap = Map.of(
+            "name", List.of("Nested Test"),
+            "key1", List.of("TestTitle"),
+            "key2", List.of("Item2")
+        );
+
+        // When
+        WarehouseRequest transformedRequest = transformer.transform(request, replacementMap);
+
+        // Then
+        assertEquals("Name Nested Test", transformedRequest.getName());
+        assertEquals("Nested title TestTitle", transformedRequest.getNested().getTitle());
+        assertEquals(List.of("Item1", "Item2"), transformedRequest.getNested().getList());
+    }
+}
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;

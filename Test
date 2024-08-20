@@ -1,4 +1,58 @@
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+@Service
+public class WarehouseRequestTransformer {
+
+    private final ObjectMapper objectMapper;
+
+    public WarehouseRequestTransformer(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    public WarehouseRequest transform(WarehouseRequest request, Map<String, List<Object>> replacementMap) {
+        try {
+            // Step 1: Serialize the object to a JSON string
+            String jsonString = objectMapper.writeValueAsString(request);
+
+            // Step 2: Perform the replacements in the JSON string
+            String transformedJsonString = replaceInString(jsonString, replacementMap);
+
+            // Step 3: Deserialize the JSON string back to the WarehouseRequest object
+            return objectMapper.readValue(transformedJsonString, WarehouseRequest.class);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Error processing JSON", e);
+        }
+    }
+
+    private String replaceInString(String input, Map<String, List<Object>> replacementMap) {
+        Pattern pattern = Pattern.compile("\\$(\\w+)");
+        Matcher matcher = pattern.matcher(input);
+
+        StringBuffer resultString = new StringBuffer();
+        while (matcher.find()) {
+            String key = matcher.group(1);
+            List<Object> replacementValues = replacementMap.get(key);
+            if (replacementValues != null) {
+                // Join the values with a comma
+                String replacement = String.join(", ", replacementValues.stream().map(Object::toString).toArray(String[]::new));
+                matcher.appendReplacement(resultString, Matcher.quoteReplacement(replacement));
+            }
+        }
+        matcher.appendTail(resultString);
+        return resultString.toString();
+    }
+}
+
+
 import com.google.cloud.bigquery.*;
 import java.util.*;
 import java.util.stream.Collectors;

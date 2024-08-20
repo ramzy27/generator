@@ -1,3 +1,47 @@
+
+import com.google.cloud.bigquery.*;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class BigQueryToMap {
+    public static void main(String[] args) {
+        // Initialize BigQuery service
+        var bigquery = BigQueryOptions.getDefaultInstance().getService();
+        
+        // Define the query
+        var query = "SELECT * FROM `your_project.your_dataset.your_table`";
+        
+        try {
+            // Run the query
+            var queryConfig = QueryJobConfiguration.newBuilder(query).build();
+            var result = bigquery.query(queryConfig);
+            
+            // Convert TableResult to Map
+            var resultMap = convertTableResultToMap(result);
+            
+            // Print the map (for demonstration purposes)
+            resultMap.forEach((key, value) -> System.out.println("Column: " + key + " -> Values: " + value));
+        } catch (InterruptedException e) {
+            System.out.println("Query execution interrupted: " + e.getMessage());
+        }
+    }
+
+    public static Map<String, List<Object>> convertTableResultToMap(TableResult tableResult) {
+        // Initialize the map with empty lists for each column
+        var resultMap = tableResult.getSchema().getFields().stream()
+                .collect(Collectors.toMap(Field::getName, field -> new ArrayList<>()));
+
+        // Iterate over each row in the TableResult and fill the map
+        tableResult.iterateAll().forEach(row -> 
+            row.stream().forEach(fieldValue -> 
+                resultMap.get(fieldValue.getAttribute().name()).add(fieldValue.getValue())
+            )
+        );
+
+        return resultMap;
+    }
+}
+
 package com.example.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;

@@ -1,0 +1,243 @@
+Sure! Here are the detailed examples for parts 4, 5, and 6 of the client's documentation.
+
+### 4. Building a Query in JSON
+
+**Structure of the JSON Request**
+- The JSON request structure is designed to build SQL queries dynamically. Below is the general structure:
+
+```json
+{
+  "noPagination": false,
+  "pageNumber": 1,
+  "pageSize": 10,
+  "rowGroupCols": [
+    {"field": "tablePrefix.columnName", "displayName": "columnAlias", "aggFunc": "aggregationFunction"}
+  ],
+  "valueCols": [
+    {"field": "tablePrefix.columnName", "displayName": "columnAlias", "aggFunc": "aggregationFunction"}
+  ],
+  "selectCols": ["tablePrefix.columnName"],
+  "groupKeys": [],
+  "pivotColumn": "tablePrefix.columnName",
+  "pivot": {
+    "aggColumn": "tablePrefix.columnName",
+    "pivotColumn": "tablePrefix.columnName",
+    "pivotValues": ["value1", "value2"]
+  },
+  "filterModel": {
+    "tablePrefix.columnName": {"values": ["value1", "value2"], "filterType": "set"}
+  },
+  "sortModel": [
+    {"colId": "tablePrefix.columnName", "sort": "asc"}
+  ]
+}
+```
+
+**Detailed Explanation of Each JSON Field**
+
+- `noPagination`: Boolean to disable pagination.
+- `pageNumber`: The page number for pagination.
+- `pageSize`: The size of each page.
+- `rowGroupCols`: List of columns to group by. Each item should have:
+  - `field`: The column name prefixed with the table alias.
+  - `displayName`: An alias for the column in the results.
+  - `aggFunc`: The aggregation function to apply (e.g., `SUM`, `COUNT`).
+- `valueCols`: List of columns to aggregate. Each item should have:
+  - `field`: The column name prefixed with the table alias.
+  - `displayName`: An alias for the column in the results.
+  - `aggFunc`: The aggregation function to apply.
+- `selectCols`: List of columns to select.
+- `groupKeys`: List of group keys.
+- `pivotColumn`: Column to pivot on.
+- `pivot`: An object containing:
+  - `aggColumn`: Column to aggregate in the pivot.
+  - `pivotColumn`: Column to pivot on.
+  - `pivotValues`: List of values to pivot.
+- `filterModel`: A map of filters. Each filter should have:
+  - `values`: List of values to filter.
+  - `filterType`: The type of filter (`set`, `number`, etc.).
+- `sortModel`: List of sorting instructions. Each item should have:
+  - `colId`: The column to sort by.
+  - `sort`: The sort direction (`asc`, `desc`).
+
+**Example JSON Queries**
+
+1. **Basic Query**
+
+```json
+{
+  "noPagination": false,
+  "pageNumber": 1,
+  "pageSize": 10,
+  "rowGroupCols": [
+    {"field": "cust.customerId", "displayName": "customerId", "aggFunc": null}
+  ],
+  "valueCols": [
+    {"field": "ord.totalAmount", "displayName": "totalAmount", "aggFunc": "SUM"}
+  ],
+  "selectCols": ["cust.customerId", "ord.totalAmount"],
+  "groupKeys": [],
+  "filterModel": {
+    "cust.customerId": {"values": ["123", "456"], "filterType": "set"}
+  },
+  "sortModel": [
+    {"colId": "cust.customerId", "sort": "asc"}
+  ]
+}
+```
+
+2. **Pivot Query**
+
+```json
+{
+  "noPagination": false,
+  "pageNumber": 1,
+  "pageSize": 10,
+  "rowGroupCols": [
+    {"field": "cust.customerId", "displayName": "customerId", "aggFunc": null},
+    {"field": "ord.orderId", "displayName": "orderId", "aggFunc": null}
+  ],
+  "valueCols": [
+    {"field": "ord.totalAmount", "displayName": "totalAmount", "aggFunc": "SUM"}
+  ],
+  "selectCols": ["cust.customerId", "ord.orderId", "ord.totalAmount"],
+  "groupKeys": [],
+  "pivotColumn": "ord.orderStatus",
+  "pivot": {
+    "aggColumn": "ord.totalAmount",
+    "pivotColumn": "ord.orderStatus",
+    "pivotValues": ["completed", "pending"]
+  },
+  "filterModel": {
+    "cust.customerId": {"values": ["123", "456"], "filterType": "set"},
+    "ord.totalAmount": {"filter": 100, "type": "greaterThan"}
+  },
+  "sortModel": [
+    {"colId": "cust.customerId", "sort": "asc"}
+  ]
+}
+```
+
+### 5. API Endpoints
+
+**List of Available Endpoints**
+
+- **POST /api/v1/query**
+  - Description: Generates a SQL query based on the JSON input.
+  - Request Body: JSON object with query parameters.
+  - Response: JSON object with the generated SQL query.
+
+**Detailed Explanation of Each Endpoint**
+
+**POST /api/v1/query**
+
+- **URL**: `/api/v1/query`
+- **HTTP Method**: `POST`
+- **Description**: This endpoint generates a SQL query based on the JSON input provided.
+- **Request Body**: The JSON request body should follow the structure described in the "Building a Query in JSON" section.
+- **Response**:
+  - `query`: The generated SQL query.
+
+**Example API Requests and Responses**
+
+**Request:**
+
+```http
+POST /api/v1/query
+Content-Type: application/json
+
+{
+  "noPagination": false,
+  "pageNumber": 1,
+  "pageSize": 10,
+  "rowGroupCols": [
+    {"field": "cust.customerId", "displayName": "customerId", "aggFunc": null},
+    {"field": "ord.orderId", "displayName": "orderId", "aggFunc": null}
+  ],
+  "valueCols": [
+    {"field": "ord.totalAmount", "displayName": "totalAmount", "aggFunc": "SUM"}
+  ],
+  "selectCols": ["cust.customerId", "ord.orderId", "ord.totalAmount"],
+  "groupKeys": [],
+  "pivotColumn": "ord.orderStatus",
+  "pivot": {
+    "aggColumn": "ord.totalAmount",
+    "pivotColumn": "ord.orderStatus",
+    "pivotValues": ["completed", "pending"]
+  },
+  "filterModel": {
+    "cust.customerId": {"values": ["123", "456"], "filterType": "set"},
+    "ord.totalAmount": {"filter": 100, "type": "greaterThan"}
+  },
+  "sortModel": [
+    {"colId": "cust.customerId", "sort": "asc"}
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "query": "SELECT cust.customerId, ord.orderId, SUM(ord.totalAmount) as totalAmount FROM Customers AS cust LEFT JOIN UNNEST(cust.orders) AS ord WHERE cust.customerId IN ('123', '456') AND ord.totalAmount > 100 GROUP BY cust.customerId, ord.orderId ORDER BY cust.customerId asc PIVOT (SUM(ord.totalAmount) FOR ord.orderStatus IN ('completed', 'pending'))"
+}
+```
+
+### 6. Common Use Cases
+
+**Examples of Common Queries**
+
+1. **Filtering Data**
+   - Filter customers with specific IDs and sum their order amounts.
+
+**Example JSON:**
+```json
+{
+  "noPagination": false,
+  "pageNumber": 1,
+  "pageSize": 10,
+  "rowGroupCols": [
+    {"field": "cust.customerId", "displayName": "customerId", "aggFunc": null}
+  ],
+  "valueCols": [
+    {"field": "ord.totalAmount", "displayName": "totalAmount", "aggFunc": "SUM"}
+  ],
+  "selectCols": ["cust.customerId", "ord.totalAmount"],
+  "groupKeys": [],
+  "filterModel": {
+    "cust.customerId": {"values": ["123", "456"], "filterType": "set"}
+  },
+  "sortModel": [
+    {"colId": "cust.customerId", "sort": "asc"}
+  ]
+}
+```
+
+**Example SQL:**
+```sql
+SELECT cust.customerId, SUM(ord.totalAmount) as totalAmount
+FROM Customers AS cust
+LEFT JOIN UNNEST(cust.orders) AS ord
+WHERE cust.customerId IN ('123', '456')
+GROUP BY cust.customerId
+ORDER BY cust.customerId asc
+```
+
+2. **Grouping Data**
+   - Group orders by customer and order ID, and sum the total amount.
+
+**Example JSON:**
+```json
+{
+  "noPagination": false,
+  "pageNumber": 1,
+  "pageSize": 10,
+  "rowGroupCols": [
+    {"field": "cust.customerId", "displayName": "customerId", "aggFunc": null},
+    {"field": "ord.orderId", "displayName": "orderId", "aggFunc": null}
+  ],
+  "valueCols": [
+    {"field": "ord.totalAmount", "displayName": "totalAmount", "aggFunc": "SUM"}
+  ],
+  "selectCols": ["cust.customerId", "ord.orderId", "ord.totalAmount"],
+  "groupKeys

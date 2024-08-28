@@ -1,3 +1,31 @@
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.server.ServerWebExchange;
+
+public Mono<List<String>> handleRequest(ServerWebExchange exchange) {
+    return Mono.fromCallable(() -> {
+        // Blocking operation wrapped in fromCallable
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        Authentication authentication = securityContext.getAuthentication();
+
+        if (authentication != null) {
+            return performBlockingOperation(authentication);
+        } else {
+            throw new RuntimeException("Authentication is null");
+        }
+    }).subscribeOn(Schedulers.boundedElastic());
+}
+
+private List<String> performBlockingOperation(Authentication authentication) {
+    // Your blocking code here
+    System.out.println("Executing blocking operation for user: " + authentication.getName());
+    // Simulate a blocking call (e.g., a database call or an API call)
+    return List.of("Processed result for user: " + authentication.getName());
+}
+
 @Service
 public class YourService {
 

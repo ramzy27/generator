@@ -1,0 +1,185 @@
+user-groups:
+  - username: user1
+    additional-groups:
+      - infodir-eqd-group1
+      - infodir-eqd-group2
+  - username: user2
+    additional-groups:
+      - infodir-eqd-group3
+  - username: user3
+    additional-groups:
+      - infodir-eqd-group1
+      - infodir-eqd-group2
+      - infodir-eqd-group3
+
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
+import java.util.Map;
+
+@Configuration
+@ConfigurationProperties(prefix = "user-groups")
+public class UserGroupsConfigProperties {
+
+    private List<UserGroupConfig> config;
+
+    public List<UserGroupConfig> getConfig() {
+        return config;
+    }
+
+    public void setConfig(List<UserGroupConfig> config) {
+        this.config = config;
+    }
+
+    public static class UserGroupConfig {
+        private String username;
+        private List<String> additionalGroups;
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public List<String> getAdditionalGroups() {
+            return additionalGroups;
+        }
+
+        public void setAdditionalGroups(List<String> additionalGroups) {
+            this.additionalGroups = additionalGroups;
+        }
+    }
+}
+
+
+import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
+import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.springframework.security.oauth2.provider.OAuth2Authentication;
+import org.springframework.security.oauth2.provider.token.TokenEnhancer;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Component
+public class CustomTokenEnhancer implements TokenEnhancer {
+
+    private final UserGroupsConfigProperties userGroupsConfig;
+
+    public CustomTokenEnhancer(UserGroupsConfigProperties userGroupsConfig) {
+        this.userGroupsConfig = userGroupsConfig;
+    }
+
+    @Override
+    public OAuth2AccessToken enhance(OAuth2AccessToken accessToken, OAuth2Authentication authentication) {
+        Map<String, Object> additionalInfo = new HashMap<>();
+        
+        // Get existing groups from the token
+        Map<String, Object> existingInfo = accessToken.getAdditionalInformation();
+        List<String> existingGroups = (List<String>) existingInfo.getOrDefault("groups", new ArrayList<>());
+        
+        // Get username from authentication
+        String username = authentication.getName();
+        
+        // Find additional groups for the user from configuration
+        List<String> additionalGroups = findAdditionalGroupsForUser(username);
+        
+        // Combine existing and additional groups
+        existingGroups.addAll(additionalGroups);
+        
+        additionalInfo.put("groups", existingGroups);
+        
+        ((DefaultOAuth2AccessToken) accessToken).setAdditionalInformation(additionalInfo);
+        
+        return accessToken;
+    }
+
+    private List<String> findAdditionalGroupsForUser(String username) {
+        return userGroupsConfig.getConfig().stream()
+                .filter(config -> config.getUsername().equals(username))
+                .findFirst()
+                .map(UserGroupsConfigProperties.UserGroupConfig::getAdditionalGroups)
+                .orElse(new ArrayList<>());
+    }
+}
+
+
+
+// Configuration class
+@Configuration
+public class OAuth2Config extends AuthorizationServerConfigurerAdapter {
+
+    @Autowired
+    private TokenStore tokenStore;
+
+    @Override
+    public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+        TokenEnhancerChain tokenEnhancerChain = new TokenEnhancerChain();
+        tokenEnhancerChain.setTokenEnhancers(Arrays.asList(new CustomTokenEnhancer()));
+
+        endpoints.tokenStore(tokenStore)
+                 .tokenEnhancer(tokenEnhancerChain);
+    }
+}
+
+
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.provider.OAuth2Authentication;
+import org.springframework.security.oauth2.provider.authentication.OAuth2AuthenticationDetails;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@RestController
+public class YourExistingController {
+
+    @GetMapping("/your-existing-endpoint")
+    public SomeResponseType yourExistingMethod() {
+        // Get the authentication object from the SecurityContext
+        OAuth2Authentication authentication = (OAuth2Authentication) SecurityContextHolder.getContext().getAuthentication();
+
+        // Extract and process groups
+        List<String> processedGroups = processGroups(authentication);
+
+        // Your existing logic here
+        // ...
+
+        // Use processedGroups as needed
+        // ...
+
+        // Return your existing response
+        return someResponse;
+    }
+
+    private List<String> processGroups(OAuth2Authentication authentication) {
+        OAuth2AuthenticationDetails details = (OAuth2AuthenticationDetails) authentication.getDetails();
+        Map<String, Object> decodedDetails = (Map<String, Object>) details.getDecodedDetails();
+        
+        List<String> groups = (List<String>) decodedDetails.get("groups");
+        
+        // Filter and process groups prefixed with "infodir-eqd"
+        List<String> infodirEqdGroups = groups.stream()
+            .filter(group -> group.startsWith("infodir-eqd"))
+            .collect(Collectors.toList());
+        
+        // Perform your custom processing here
+        for (String group : infodirEqdGroups) {
+            // Add your custom logic for each group
+            System.out.println("Processing group: " + group);
+        }
+        
+        return infodirEqdGroups;
+    }
+}
+
+
+
+

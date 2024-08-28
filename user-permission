@@ -1,3 +1,16 @@
+{
+        return ReactiveSecurityContextHolder.getContext()
+            .flatMap(securityContext -> {
+                String token = securityContext.getAuthentication().getCredentials().toString();
+                
+                return Mono.fromCallable(() -> {
+                    // Your existing blocking code here
+                    // Use the token as needed
+                    return performBlockingOperations(token);
+                }).subscribeOn(Schedulers.boundedElastic());
+            });
+    }
+
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import org.springframework.security.core.context.SecurityContext;

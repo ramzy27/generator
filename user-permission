@@ -1,3 +1,28 @@
+@Service
+public class YourService {
+
+    public void yourMethod(ServerHttpRequest request) {
+        System.out.println("Starting reactive chain in service");
+
+        ReactiveSecurityContextHolder.getContext()
+            .switchIfEmpty(Mono.error(new RuntimeException("SecurityContext is empty!")))
+            .map(SecurityContext::getAuthentication)
+            .doOnNext(auth -> System.out.println("Authentication object: " + auth))
+            .filter(auth -> auth instanceof OAuth2AuthenticationToken)
+            .cast(OAuth2AuthenticationToken.class)
+            .doOnNext(auth -> {
+                System.out.println("Calling addPermissionUnitFilter...");
+                addPermissionUnitFilter(auth, request);
+            })
+            .doOnError(error -> System.err.println("Error: " + error.getMessage()))
+            .subscribe();  // Ensure the reactive chain is executed
+    }
+
+    private void addPermissionUnitFilter(OAuth2AuthenticationToken auth, ServerHttpRequest request) {
+        // Your implementation here
+        System.out.println("Permission unit filter added for: " + auth.getName());
+    }
+}
 If the `addPermissionUnitFilter` method is not being called, this could be due to a few potential issues. Let's go through some troubleshooting steps to identify and resolve the problem.
 
 ### 1. **Check the Reactive Chain Execution**

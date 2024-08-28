@@ -1,3 +1,81 @@
+If the `addPermissionUnitFilter` method is not being called, this could be due to a few potential issues. Let's go through some troubleshooting steps to identify and resolve the problem.
+
+### 1. **Check the Reactive Chain Execution**
+   - Ensure that the reactive chain is actually being executed. Reactive chains only run when they are subscribed to, which you're doing with `.subscribe()`. However, if the preceding steps in the chain fail or result in an empty `Mono`, the final method might not be called.
+
+### 2. **Verify the Authentication Type**
+   - Make sure that the `Authentication` object is indeed an instance of `OAuth2AuthenticationToken`. If it’s not, the `.filter(auth -> auth instanceof OAuth2AuthenticationToken)` step will filter out the `Authentication` object, and the subsequent `.cast(OAuth2AuthenticationToken.class)` and `.subscribe()` won't be called.
+
+   You can add some logging to check if the `Authentication` object is being filtered out:
+
+   ```java
+   ReactiveSecurityContextHolder.getContext()
+       .map(SecurityContext::getAuthentication)
+       .doOnNext(auth -> System.out.println("Authentication object: " + auth))
+       .filter(auth -> auth instanceof OAuth2AuthenticationToken)
+       .cast(OAuth2AuthenticationToken.class)
+       .doOnNext(auth -> System.out.println("OAuth2AuthenticationToken: " + auth))
+       .subscribe(auth -> addPermissionUnitFilter(auth, request),
+           error -> System.err.println("Error: " + error.getMessage()));
+   ```
+
+   This will log the `Authentication` object before and after filtering, so you can see if it’s being correctly identified as an `OAuth2AuthenticationToken`.
+
+### 3. **Check the Request Context**
+   - Ensure that this code is being executed in the correct request context where the `SecurityContext` is available. If this is being called outside of a web request (e.g., in a background task), the `SecurityContext` may not be populated.
+
+### 4. **Ensure Security Context is Populated**
+   - The `SecurityContext` might not be populated if the user is not authenticated or if the security filters haven't run yet. Make sure that the user is authenticated when this code runs.
+
+   You can check for an empty `SecurityContext` and log it:
+
+   ```java
+   ReactiveSecurityContextHolder.getContext()
+       .switchIfEmpty(Mono.error(new RuntimeException("SecurityContext is empty!")))
+       .map(SecurityContext::getAuthentication)
+       .doOnNext(auth -> System.out.println("Authentication object: " + auth))
+       .filter(auth -> auth instanceof OAuth2AuthenticationToken)
+       .cast(OAuth2AuthenticationToken.class)
+       .doOnNext(auth -> System.out.println("OAuth2AuthenticationToken: " + auth))
+       .subscribe(auth -> addPermissionUnitFilter(auth, request),
+           error -> System.err.println("Error: " + error.getMessage()));
+   ```
+
+   If the `SecurityContext` is empty, the error message will be logged.
+
+### 5. **Check `addPermissionUnitFilter` Method**
+   - Ensure that there’s no early return or logic within `addPermissionUnitFilter` that prevents its intended execution. If the method contains conditions that could prevent the main logic from executing, ensure those conditions are not met during this invocation.
+
+### 6. **Verify Reactive Context Propagation**
+   - In a reactive application, context (including `SecurityContext`) might not be automatically propagated if switching between different threads or reactive contexts. If the reactive chain isn't attached to the main WebFlux processing chain, it might not carry the security context over.
+
+### Example Revised Code with Logging:
+
+```java
+ReactiveSecurityContextHolder.getContext()
+    .switchIfEmpty(Mono.error(new RuntimeException("SecurityContext is empty!")))
+    .map(SecurityContext::getAuthentication)
+    .doOnNext(auth -> System.out.println("Authentication object: " + auth))
+    .filter(auth -> auth instanceof OAuth2AuthenticationToken)
+    .cast(OAuth2AuthenticationToken.class)
+    .doOnNext(auth -> System.out.println("OAuth2AuthenticationToken: " + auth))
+    .subscribe(
+        auth -> {
+            System.out.println("Calling addPermissionUnitFilter...");
+            addPermissionUnitFilter(auth, request);
+        },
+        error -> System.err.println("Error: " + error.getMessage())
+    );
+```
+
+### Conclusion:
+- **Verify Logging**: Add logging to ensure that the authentication object is being correctly identified and passed through the chain.
+- **Context Population**: Make sure the `SecurityContext` is populated when this code runs.
+- **Check Request Context**: Ensure this is being executed within the correct context where the security filters have processed the request.
+
+These steps should help identify where the issue lies and why `addPermissionUnitFilter` might not be getting called.
+
+
 user-groups:
   - username: user1
     additional-groups:

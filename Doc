@@ -1,3 +1,139 @@
+openapi: 3.0.1
+info:
+  title: Warehouse API
+  version: 1.0.0
+paths:
+  /warehouse:
+    post:
+      summary: Submit a warehouse request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WarehouseRequest'
+      responses:
+        '200':
+          description: Successful response
+components:
+  schemas:
+    WarehouseRequest:
+      type: object
+      properties:
+        jobIds:
+          type: array
+          items:
+            type: string
+          description: List of Job IDs
+        valueCols:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColumnVO'
+          description: List of value columns
+        aggregation:
+          type: array
+          items:
+            type: string
+            enum:
+              - Result_EPI
+              - Result_Exposure_RiskFactor1
+              - Result_Exposure_RiskFactor2
+              - Result_Exposure_InstrumentId
+          description: Aggregation columns
+        filterModel:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ColumnFilter'
+        pivot:
+          $ref: '#/components/schemas/Pivot'
+        distinct:
+          type: boolean
+          default: false
+        exportFormat:
+          type: string
+          enum:
+            - avro
+            - json
+            - csv
+          default: avro
+      required:
+        - jobIds
+        - valueCols
+      allOf:
+        # Conditional validation: If 'aggregation' is present and not empty, then 'aggFunc' in 'valueCols' is required
+        - if:
+            properties:
+              aggregation:
+                minItems: 1
+          then:
+            properties:
+              valueCols:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ColumnVOWithAggFunc'
+    ColumnVO:
+      type: object
+      properties:
+        field:
+          type: string
+          description: Field name
+          enum:
+            - Result_snap
+            - Result_context
+            - Result_EPI
+            - Result_HMSBook
+            - Result_JobId
+            - Result_InstrumentId
+            - Result_Errors
+            - Result_PortfolioId
+            - Result_LegalEntity
+            - Result_Desk
+        displayName:
+          type: string
+          description: Display name
+    ColumnVOWithAggFunc:
+      allOf:
+        - $ref: '#/components/schemas/ColumnVO'
+        - type: object
+          properties:
+            aggFunc:
+              type: string
+              description: Aggregation function
+              enum:
+                - sum
+                - avg
+                - min
+                - max
+                - count
+                - any_value
+          required:
+            - aggFunc
+    Pivot:
+      type: object
+      properties:
+        aggColumn:
+          type: string
+          description: Aggregation column
+        pivotColumn:
+          type: string
+          description: Pivot column
+        pivotValues:
+          type: array
+          items:
+            type: string
+            enum:
+              - RollBasedPnL
+              - PortfolioPnL
+              - HypoPnL
+              - UnexplainedHypo
+              - ThetaPnL
+              - FxSpotPnL
+      required:
+        - aggColumn
+        - pivotColumn
+        - pivotValues
+
+
 Sure! Here are the detailed examples for parts 4, 5, and 6 of the client's documentation.
 
 ### 4. Building a Query in JSON

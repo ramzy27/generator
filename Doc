@@ -1,3 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Query Builder</title>
+    
+    <!-- jQuery CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- jQuery QueryBuilder CSS and JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jQuery-QueryBuilder/dist/css/query-builder.default.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jQuery-QueryBuilder/dist/js/query-builder.standalone.min.js"></script>
+
+    <style>
+        /* Custom CSS for layout */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #builder {
+            flex: 1;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        #json-display {
+            height: 200px;
+            padding: 20px;
+            background-color: #ffffff;
+            border-top: 1px solid #ddd;
+            position: relative;
+        }
+        #json-output {
+            width: 100%;
+            height: 150px;
+            font-family: monospace;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+            resize: none;
+        }
+        #copy-button {
+            position: absolute;
+            right: 20px;
+            bottom: 10px;
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Query Builder Section -->
+    <div id="builder"></div>
+
+    <!-- JSON Output and Copy Button Section -->
+    <div id="json-display">
+        <textarea id="json-output" readonly></textarea>
+        <button id="copy-button">Copy to Clipboard</button>
+    </div>
+
+    <script>
+        // Initialize the Query Builder with basic fields
+        $('#builder').queryBuilder({
+            filters: [
+                {
+                    id: 'jobIds',
+                    label: 'Job IDs',
+                    type: 'string',
+                    input: 'text',
+                    operators: ['equal', 'not_equal', 'in', 'not_in'],
+                },
+                {
+                    id: 'field',
+                    label: 'Field',
+                    type: 'string',
+                    input: 'select',
+                    values: {
+                        'Result_snap': 'Result_snap',
+                        'Result_context': 'Result_context',
+                        'Result_EPI': 'Result_EPI',
+                        'Result_HMSBook': 'Result_HMSBook',
+                        'Result_JobId': 'Result_JobId',
+                        'Result_InstrumentId': 'Result_InstrumentId',
+                        'Result_Errors': 'Result_Errors'
+                    },
+                    operators: ['equal', 'not_equal']
+                },
+                {
+                    id: 'aggFunc',
+                    label: 'Aggregation Function',
+                    type: 'string',
+                    input: 'select',
+                    values: {
+                        'sum': 'sum',
+                        'avg': 'avg',
+                        'min': 'min',
+                        'max': 'max',
+                        'count': 'count',
+                        'any_value': 'any_value'
+                    }
+                },
+                {
+                    id: 'pivot',
+                    label: 'Pivot',
+                    type: 'string',
+                    operators: ['equal', 'not_equal']
+                }
+            ]
+        });
+
+        // Update JSON output whenever the query is updated
+        $('#builder').on('afterUpdateRuleValue afterUpdateRuleFilter afterDeleteRule afterCreateRule', function() {
+            var rules = $('#builder').queryBuilder('getRules');
+            if (!$.isEmptyObject(rules)) {
+                $('#json-output').val(JSON.stringify(rules, null, 2));
+            } else {
+                $('#json-output').val('');
+            }
+        });
+
+        // Copy JSON to Clipboard
+        $('#copy-button').on('click', function() {
+            const jsonOutput = document.getElementById('json-output');
+            jsonOutput.select();
+            document.execCommand('copy');
+            alert('JSON copied to clipboard!');
+        });
+    </script>
+
+</body>
+</html>
+
+
 
 openapi: 3.0.1
 info:

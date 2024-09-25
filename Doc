@@ -1,3 +1,158 @@
+
+openapi: 3.0.1
+info:
+  title: Warehouse API
+  version: 1.0.0
+paths:
+  /warehouse:
+    post:
+      summary: Submit a warehouse request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WarehouseRequest'
+            examples:
+              example1:
+                summary: Example Request
+                value:
+                  jobIds:
+                    - "2ab3909d-f423-4d61-aa94-30d8f0a6d918"
+                  valueCols:
+                    - field: "Result_snap"
+                      aggFunc: "sum"
+                    - field: "Result_context"
+                      aggFunc: "avg"
+                  pivot:
+                    aggColumn: "Result_Exposure_Value"
+                    pivotColumn: "Result_MultipriceStep"
+                    pivotValues:
+                      - "RollBasedPnL"
+                      - "PortfolioPnL"
+      responses:
+        '200':
+          description: Successful response
+components:
+  schemas:
+    WarehouseRequest:
+      type: object
+      properties:
+        jobIds:
+          type: array
+          items:
+            type: string
+          description: List of Job IDs
+        valueCols:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColumnVO'
+          description: List of value columns
+        aggregation:
+          type: array
+          items:
+            type: string
+            enum:
+              - Result_EPI
+              - Result_Exposure_RiskFactor1
+              - Result_Exposure_RiskFactor2
+              - Result_Exposure_InstrumentId
+          description: Aggregation columns
+        pivot:
+          $ref: '#/components/schemas/Pivot'
+        filterModel:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ColumnFilter'
+          description: Filter model for additional query filters
+      required:
+        - jobIds
+        - valueCols
+    ColumnVO:
+      type: object
+      properties:
+        field:
+          type: string
+          enum:
+            - Result_snap
+            - Result_context
+            - Result_EPI
+            - Result_HMSBook
+            - Result_JobId
+            - Result_InstrumentId
+            - Result_Errors
+            - Result_PortfolioId
+            - Result_LegalEntity
+            - Result_Desk
+          description: Field name
+        aggFunc:
+          type: string
+          enum:
+            - sum
+            - avg
+            - min
+            - max
+            - count
+            - any_value
+          description: Aggregation function (required if 'aggregation' exists)
+    Pivot:
+      type: object
+      properties:
+        aggColumn:
+          type: string
+          description: Aggregation column
+        pivotColumn:
+          type: string
+          description: Pivot column
+        pivotValues:
+          type: array
+          items:
+            type: string
+            enum:
+              - RollBasedPnL
+              - PortfolioPnL
+              - HypoPnL
+              - UnexplainedHypo
+              - ThetaPnL
+              - FxSpotPnL
+          description: Pivot values
+      required:
+        - aggColumn
+        - pivotColumn
+        - pivotValues
+    ColumnFilter:
+      type: object
+      properties:
+        filterType:
+          type: string
+          enum:
+            - set
+            - range
+            - date
+            - text
+          description: Type of filter to apply
+        values:
+          type: array
+          items:
+            type: string
+          description: Values to filter by (for set-type filters)
+        range:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+              description: Start of the range (for range-type filters)
+            end:
+              type: string
+              format: date-time
+              description: End of the range (for range-type filters)
+        text:
+          type: string
+          description: Text-based filter input
+      description: Column filter options for filtering query results
+
+
 openapi: 3.0.1
 info:
   title: Warehouse API

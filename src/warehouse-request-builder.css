@@ -1,0 +1,32 @@
+/* warehouse-request-builder.component.css */
+.container {
+  margin: 0 auto;
+  max-width: 800px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.value-col, .filter {
+  display: flex;
+  align-items: center;
+}
+
+.value-col mat-form-field, .filter mat-form-field {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.json-output {
+  width: 100%;
+  height: 300px;
+  font-family: monospace;
+  padding: 10px;
+  box-sizing: border-box;
+  resize: none;
+}
+
+.buttons {
+  margin-top: 10px;
+}

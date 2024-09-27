@@ -3,11 +3,30 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { FIELD_LIST, FILTER_OPERATORS } from '../field-config';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import {
+  MatCheckboxModule,
+  MatInputModule,
+  MatButtonModule,
+  MatExpansionModule,
+  MatSelectModule,
+  MatIconModule,
+} from '@angular/material';
 
 @Component({
-  selector: 'app-warehouse-request-builder',
+  selector: 'warehouse-request-builder',
+  standalone: true,
   templateUrl: './warehouse-request-builder.component.html',
-  styleUrls: ['./warehouse-request-builder.component.css']
+  styleUrls: ['./warehouse-request-builder.component.css'],
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    MatCheckboxModule,
+    MatInputModule,
+    MatButtonModule,
+    MatExpansionModule,
+    MatSelectModule,
+    MatIconModule,
+  ],
 })
 export class WarehouseRequestBuilderComponent implements OnInit {
   warehouseForm: FormGroup;

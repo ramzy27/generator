@@ -1,0 +1,140 @@
+<!-- warehouse-request-builder.component.html -->
+<div class="container">
+  <h2>Warehouse Request Builder</h2>
+
+  <form [formGroup]="warehouseForm">
+    <!-- General Settings -->
+    <mat-accordion>
+      <!-- General Settings Panel -->
+      <mat-expansion-panel expanded>
+        <mat-expansion-panel-header>
+          <mat-panel-title>General Settings</mat-panel-title>
+        </mat-expansion-panel-header>
+        <div>
+          <mat-checkbox formControlName="official">Official</mat-checkbox>
+          <mat-checkbox formControlName="invalidateCache">Invalidate Cache</mat-checkbox>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Job IDs (comma-separated)</mat-label>
+            <input matInput formControlName="jobIds" placeholder="Enter Job IDs">
+          </mat-form-field>
+          <mat-checkbox formControlName="distinct">Distinct</mat-checkbox>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Export Format</mat-label>
+            <mat-select formControlName="exportFormat">
+              <mat-option value="avro">avro</mat-option>
+              <mat-option value="json">json</mat-option>
+              <mat-option value="csv">csv</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Value Columns Panel -->
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Value Columns</mat-panel-title>
+        </mat-expansion-panel-header>
+        <div formArrayName="valueCols">
+          <div *ngFor="let vc of valueCols.controls; let i = index" [formGroupName]="i" class="value-col">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Field</mat-label>
+              <mat-select formControlName="field">
+                <mat-option *ngFor="let field of fieldList" [value]="field">{{ field }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <button mat-icon-button color="warn" (click)="removeValueCol(i)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+          <button mat-button color="primary" (click)="addValueCol()">
+            <mat-icon>add</mat-icon> Add Value Column
+          </button>
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Aggregation Panel -->
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Aggregation</mat-panel-title>
+        </mat-expansion-panel-header>
+        <div>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Aggregation Columns (comma-separated)</mat-label>
+            <input matInput formControlName="aggregation" placeholder="Enter Aggregation Columns">
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Filters Panel -->
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Filters</mat-panel-title>
+        </mat-expansion-panel-header>
+        <div formArrayName="filters">
+          <div *ngFor="let filter of filters.controls; let i = index" [formGroupName]="i" class="filter">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Field</mat-label>
+              <mat-select formControlName="field">
+                <mat-option *ngFor="let field of fieldList" [value]="field">{{ field }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Operator</mat-label>
+              <mat-select formControlName="filterType">
+                <mat-option *ngFor="let op of filterOperators" [value]="op.value">{{ op.viewValue }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Value</mat-label>
+              <input matInput formControlName="value" placeholder="Enter Value">
+            </mat-form-field>
+            <button mat-icon-button color="warn" (click)="removeFilter(i)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+          <button mat-button color="primary" (click)="addFilter()">
+            <mat-icon>add</mat-icon> Add Filter
+          </button>
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Pivot Panel -->
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Pivot</mat-panel-title>
+        </mat-expansion-panel-header>
+        <div [formGroup]="pivotGroup">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Aggregation Column</mat-label>
+            <input matInput formControlName="aggColumn" placeholder="Enter Aggregation Column">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Pivot Column</mat-label>
+            <input matInput formControlName="pivotColumn" placeholder="Enter Pivot Column">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Pivot Values (comma-separated)</mat-label>
+            <input matInput formControlName="pivotValues" placeholder="Enter Pivot Values">
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+    </mat-accordion>
+  </form>
+
+  <!-- Generate JSON Button -->
+  <button mat-raised-button color="primary" (click)="generateJSON()">
+    <mat-icon>build</mat-icon> Generate JSON
+  </button>
+
+  <!-- JSON Output -->
+  <h3>Generated JSON</h3>
+  <textarea [value]="generatedJSON" readonly class="json-output"></textarea>
+  <div class="buttons">
+    <button mat-button color="accent" (click)="clearForm()">
+      <mat-icon>refresh</mat-icon> Clear
+    </button>
+    <button mat-button color="primary" (click)="copyJSON()">
+      <mat-icon>content_copy</mat-icon> Copy to Clipboard
+    </button>
+  </div>
+</div>

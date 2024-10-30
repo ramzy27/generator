@@ -1,3 +1,147 @@
+Here’s the updated Jira ticket with simplified filters and an example GET query:
+
+
+---
+
+Ticket Title:
+
+Create Flexible Job Explorer API Endpoint with Date Range, Job ID, and Job Type Filters for Firestore
+
+
+---
+
+Ticket Type:
+
+Feature
+
+
+---
+
+Description:
+
+Design and implement a flexible API endpoint in Firestore to retrieve the latest version of job documents from the "jobs" collection. The API should support filtering based on a date range (rollDate), specific job IDs (single or multiple), and job types (as an array). The endpoint should return only the latest version of each job and be documented in Swagger UI for ease of use.
+
+
+---
+
+Requirements:
+
+1. API Endpoint:
+
+Endpoint: /jobs
+
+HTTP Method: GET
+
+Purpose: Retrieve the latest version of job documents with flexible filtering options.
+
+
+
+2. Parameters:
+
+rollDate (Date Range): Filter jobs based on a date range.
+
+startDate (string, date format): Start date for the roll date range.
+
+endDate (string, date format): End date for the roll date range.
+
+
+jobId: Filter by job ID(s); accepts a single job ID or a list of job IDs.
+
+jobId (string or array of strings): Unique identifier(s) for jobs to retrieve.
+
+
+jobType: Filter by job type(s).
+
+jobType (array of strings): Job type categories to filter by.
+
+
+
+
+3. Logic:
+
+Latest Version: Automatically retrieve only the latest version of each job, using a version or updatedAt field to identify the most recent.
+
+Filtering: Limit filtering to the specified fields (rollDate date range, jobId, and jobType) for simplicity.
+
+Pagination and Sorting:
+
+Include limit and page query parameters for pagination.
+
+Default sorting by updatedAt in descending order.
+
+
+
+
+4. Swagger UI Integration:
+
+Interactive Documentation: Document the API in Swagger, specifying all parameters and their usage.
+
+Examples: Provide sample requests in Swagger to illustrate different filter combinations.
+
+Parameter Descriptions: Clearly document the purpose of each parameter.
+
+
+
+5. Response:
+
+Format: JSON array of job objects.
+
+Fields: Return all fields in each job document.
+
+Error Handling: Implement error handling for invalid parameters or query formats.
+
+
+
+6. Example GET Query:
+
+Example: Retrieve active jobs of types "engineering" and "management" within a specific date range, limiting results to the latest version:
+
+GET /jobs?startDate=2024-01-01&endDate=2024-12-31&jobId=123,456&jobType=engineering,management&limit=10&page=1
+
+
+
+
+
+---
+
+Acceptance Criteria:
+
+1. The /jobs endpoint retrieves only the latest version of each job, based on the updatedAt or version field.
+
+
+2. Filters for rollDate (using startDate and endDate), jobId (single or multiple), and jobType (array) are functional and documented in Swagger.
+
+
+3. The API includes pagination (limit and page parameters) and default sorting by updatedAt in descending order.
+
+
+4. Swagger UI is configured with parameter descriptions and usage examples.
+
+
+5. Response is formatted in JSON, containing all job fields by default.
+
+
+6. Error handling is implemented for invalid or missing parameters.
+
+
+
+
+---
+
+Priority:
+
+High
+
+Story Points:
+
+5
+
+
+---
+
+This refined approach simplifies the filters and keeps the API focused on core needs, making it more efficient to implement and easier for clients to use. Let me know if there are any further adjustments needed!
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

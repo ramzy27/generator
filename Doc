@@ -1,21 +1,4 @@
 
-Certainly! I'll incorporate the technical details you've provided into the draft, highlighting how we leveraged BigQuery's powerful jobs model, optimized SQL queries, efficient partitioning, caching mechanisms, and result streaming in Avro format. This will emphasize the efficiency and cost-effectiveness of our solution without overwhelming the reader with technical jargon.
-
-
----
-
-Story Title: Optimizing Risk Data Access with the Risk Warehouse API
-
-Story Intro:
-
-Our team has significantly improved scalability and enhanced efficiency by developing the Risk Warehouse API, a solution that creates substantial functional value for the business. By consolidating multiple query endpoints into a single, powerful interface, we have streamlined risk data access and empowered users to retrieve precise information quickly and securely.
-
-Group: ESFHOF2024
-
-Tags:
-
-Award Categories: HOFBusinessOutcome, HOFInnovator, HOFStrategicTech
-
 Functional Area: HOFDerivs
 
 
@@ -101,21 +84,6 @@ Supporting Evidence or Metrics:
 Performance Improvements:
 
 Reduced report generation times from several minutes to under 20 seconds through optimized SQL and efficient partitioning.
-
-
-Cost Savings:
-
-Significant reductions in storage and compute costs by avoiding unnecessary data processing and leveraging caching mechanisms.
-
-
-User Adoption:
-
-High adoption rates with positive feedback on improved efficiency, ease of use, and compatibility with data analysis tools.
-
-
-Data Volume Handling:
-
-Successfully managing trillions of data points per day without performance issues, thanks to BigQuery's jobs model and our optimizations.
 
 
 

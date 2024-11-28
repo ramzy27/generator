@@ -1,0 +1,213 @@
+// Enhanced Jenkins Pipeline Script
+
+@Library('common') _
+
+def branchName = params.BRANCH_NAME.tokenize('/').last().trim()
+def isReleaseBranch = branchName.contains('release')
+def revision = "${branchName}-${new Date().format('yyyy-MM-dd-HHmmss')}-${env.BUILD_NUMBER}"
+def groupId = "com.hsbc.gbm.eqd.riskstore"
+def artifactId = "riskstore-api"
+def packName = "${artifactId}-${revision}"
+def targetNexus = "https://gbmt-nexus.prd.fx.gbm.cloud.uk.hsbc:8443/repository/maven-release/${groupId.replace('.', '/')}/${artifactId}/${revision}"
+
+def callPipeline() {
+    pipeline {
+        agent any
+        parameters {
+            string(name: 'BRANCH_NAME', defaultValue: 'develop', description: 'Branch to build')
+            booleanParam(name: 'RUN_SONARQUBE', defaultValue: false, description: 'Run SonarQube Analysis')
+            booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip Tests during Build')
+            booleanParam(name: 'DEPLOY_TO_UAT', defaultValue: false, description: 'Automatically Deploy to UAT if checked')
+        }
+        environment {
+            GROUP_ID = groupId
+            ARTIFACT_ID = artifactId
+            REVISION = revision
+            TARGET_NEXUS = targetNexus
+        }
+        stages {
+            stage('Preparation') {
+                steps {
+                    checkout scm
+                }
+            }
+            stage('Build Config and Artifacts') {
+                steps {
+                    script {
+                        def commit = sh(script: "git log -n1 --format=\"%H\"", returnStdout: true).trim()
+                        println("Commit ID: ${commit}")
+                        withMaven(maven: 'maven3', jdk: 'zulu-jdk21-linux') {
+                            def skipTestsFlag = params.SKIP_TESTS ? '-DskipTests' : ''
+                            sh "mvn clean package ${skipTestsFlag} -Drevision='${REVISION}' -Dbranch='${branchName}' -Dcommit='${commit}'"
+                            sh "mvn surefire-report:report-only"
+                            stash includes: 'target/*.zip', name: 'package'
+                            stash includes: 'target/reports/*.{html,xml,txt}', name: 'test'
+                        }
+                    }
+                }
+            }
+            stage('SonarQube Analysis and Jacoco Code Coverage') {
+                when {
+                    expression { return isReleaseBranch || params.RUN_SONARQUBE }
+                }
+                steps {
+                    withMaven(maven: 'maven3', jdk: 'zulu-jdk21-linux') {
+                        withSonarQubeEnv('ALM SonarQube') {
+                            sh "mvn clean verify sonar:sonar jacoco:report -Drevision='${REVISION}' -Dsonar.projectKey=riskstore-gcp-api -Dsonar.host.url=https://devsupport-sonar.it.global.hsbc:9009/sonar"
+                        }
+                    }
+                    jacoco execPattern: '**/target/jacoco.exec', classPattern: '**/target/classes', sourcePattern: '**/src/main/java', exclusionPattern: '**/target/test-classes', changeBuildStatus: true
+                }
+            }
+            stage('Quality Gate') {
+                when {
+                    expression { return isReleaseBranch || params.RUN_SONARQUBE }
+                }
+                steps {
+                    timeout(time: 3, unit: 'MINUTES') {
+                        script {
+                            def qualityGate = waitForQualityGate()
+                            if (qualityGate.status != 'OK') {
+                                error "Pipeline aborted due to quality gate failure: ${qualityGate.status}"
+                            }
+                        }
+                    }
+                }
+            }
+            stage('SAST Scan') {
+                when {
+                    expression { return isReleaseBranch }
+                }
+                steps {
+                    script {
+                        def sastScanId = cyberflows.launchSASTScan(
+                            cyberflowUser: "rskt-vulture-user",
+                            cyberflowConfigId: "mkuGsngXXL8tTRvHiW7eUZAPH",
+                            stashUrl: "https://stash.hk.hsbc/projects/EQDRST/repos/riskstore-gcp-api",
+                            component: "Rskt-gcp-api",
+                            branch: params.BRANCH_NAME,
+                            sastAppType: "Other"
+                        )
+                        println("SAST Scan ID: ${sastScanId}")
+                    }
+                }
+            }
+            stage('DAST Scan') {
+                when {
+                    expression { return isReleaseBranch }
+                }
+                steps {
+                    script {
+                        def dastScanId = cyberflows.launchDASTScan(
+                            cyberflowUser: "rskt-vulture-user",
+                            cyberflowConfigId: "jCQGFNW4P5Hfx5nNTD9Qj2dYc",
+                            stashUrl: "https://riskstore.uat.eq.mss.uk.hsbc:8086/riskstore-api/api",
+                            component: "Rskt-RiskStoreAPI",
+                            branch: params.BRANCH_NAME,
+                            dastAppType: "UAT"
+                        )
+                        println("DAST Scan ID: ${dastScanId}")
+                    }
+                }
+            }
+            stage('Upload to Nexus') {
+                when {
+                    expression { return true }
+                }
+                steps {
+                    script {
+                        unstash 'package'
+                        unstash 'test'
+                        withCredentials([usernameColonPassword(credentialsId: 'efx-nexus3', variable: 'TOKEN')]) {
+                            sh """
+                                curl -v -u ${TOKEN} --upload-file ${WORKSPACE}/target/${packName}.zip ${TARGET_NEXUS}/${artifactId}-${revision}.zip
+                                curl -v -u ${TOKEN} --upload-file ${WORKSPACE}/target/reports/surefire-report.html ${TARGET_NEXUS}/${artifactId}-${revision}.html
+                            """
+                        }
+                    }
+                }
+            }
+            stage('Build and Deploy to DEV') {
+                steps {
+                    script {
+                        build job: "../../../EQD-Phoenix/Hydre/Hydre-builder/master", parameters: [
+                            string(name: 'artifactNexusUrl', value: "${TARGET_NEXUS}/${artifactId}-${revision}.zip")
+                        ]
+                        build job: "../../../EQD-Phoenix/Hydre/Hydre-deployer/master", parameters: [
+                            string(name: 'serviceName', value: artifactId),
+                            string(name: 'envType', value: 'dev'),
+                            string(name: 'envId', value: '0'),
+                            booleanParam(name: 'useLatestImage', value: true)
+                        ]
+                    }
+                }
+            }
+            stage('Trigger UAT Deployment') {
+                when {
+                    expression { return isReleaseBranch && !params.DEPLOY_TO_UAT }
+                }
+                steps {
+                    script {
+                        checkpoint "Trigger RM UAT Deployment"
+                        boolean flagToProceed = true
+                        def userSelect = 'skip deployment'
+                        try {
+                            timeout(time: 5, unit: 'MINUTES') {
+                                userSelect = input(id: 'userSelect', message: 'Please confirm CR Creation', parameters: [
+                                    choice(name: 'tag options', choices: "${artifactId}\nskip deployment")
+                                ])
+                            }
+                        } catch (error) {
+                            def user = error.getCauses()[0].getUser()
+                            if ('SYSTEM' == user.toString()) {
+                                echo "Timeout reached, continue to next stage"
+                            } else {
+                                throw new Exception("[ERROR] stage failed!")
+                            }
+                        }
+                        if (userSelect == "skip deployment") {
+                            println("Skipping RM UAT deployment")
+                            flagToProceed = false
+                        }
+                        if (flagToProceed) {
+                            checkpoint "Trigger to Create CR"
+                            build job: "../../../EQD-Phoenix/Hydre/Hydre-PRE-Deployment/master", parameters: [
+                                string(name: 'artifactNexusUrl', value: "${TARGET_NEXUS}/${artifactId}-${revision}.zip"),
+                                booleanParam(name: 'deployToPre', value: true),
+                                booleanParam(name: 'raiseCR', value: true)
+                            ]
+                        }
+                    }
+                }
+            }
+            stage('Deploy to UAT Automatically') {
+                when {
+                    expression { return isReleaseBranch && params.DEPLOY_TO_UAT }
+                }
+                steps {
+                    script {
+                        build job: "../../../EQD-Phoenix/Hydre/Hydre-PRE-Deployment/master", parameters: [
+                            string(name: 'artifactNexusUrl', value: "${TARGET_NEXUS}/${artifactId}-${revision}.zip"),
+                            booleanParam(name: 'deployToPre', value: true),
+                            booleanParam(name: 'raiseCR', value: true)
+                        ]
+                    }
+                }
+            }
+        }
+        post {
+            always {
+                echo 'Cleaning up...'
+                cleanWs()
+            }
+            success {
+                echo 'Pipeline completed successfully!'
+            }
+            failure {
+                echo 'Pipeline failed. Check logs for details.'
+            }
+        }
+    }
+}
+
+callPipeline()

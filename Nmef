@@ -1,0 +1,37 @@
+Here’s a less formal version of your message:
+
+
+---
+
+Subject: Quick Discussion: Birdwatcher Stats and Position Controls
+
+Hi [Architect's Name] and [Team Leader's Name],
+
+I wanted to bring up a few points we should discuss about improving how we handle Birdwatcher stats. We can do this over email/chat if we can cover everything, or hop on a quick call if needed.
+
+The main idea is to start getting Birdwatcher stats from the Metadata API instead of Airflow. This would give us the flexibility to monitor ad-hoc jobs if needed. The key question is: what metrics can we enrich from RiskEngine so we still have all the measures we rely on today?
+
+Here are the most important controls we use right now:
+
+1. Position control (mostly from Vault and RiskEngine).
+
+
+2. Risk factors (from RiskEngine).
+
+
+3. Vault data (we already get this from Vault Solace notifications in Metadata).
+
+
+
+Another point is to start using the Report Server for position controls and detailed positions, which we currently pull from the Context Store.
+
+Let me know your thoughts! If it’s easier to talk it through, I’m happy to schedule a quick call.
+
+Cheers,
+[Your Name]
+
+
+---
+
+Let me know if you'd like further tweaks!
+

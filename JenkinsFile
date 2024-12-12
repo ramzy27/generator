@@ -211,3 +211,31 @@ def callPipeline() {
 }
 
 callPipeline()
+
+
+
+stage('Quality Gate') {
+    when {
+        expression { return isReleaseBranch || params.RUN_SONARQUBE }
+    }
+    steps {
+        script {
+            // Increase timeout and add more detailed logging
+            timeout(time: 10, unit: 'MINUTES') {
+                def qualityGate = waitForQualityGate()
+                
+                // Add more detailed logging
+                echo "SonarQube Quality Gate Status: ${qualityGate.status}"
+                echo "Quality Gate Details: ${qualityGate}"
+                
+                // More granular error handling
+                if (qualityGate.status == 'PENDING') {
+                    echo "Quality Gate is still in PENDING state. Continuing..."
+                    // Optionally, you could add a custom wait or additional checks
+                } else if (qualityGate.status != 'OK') {
+                    error "Pipeline aborted due to quality gate failure: ${qualityGate.status}"
+                }
+            }
+        }
+    }
+}

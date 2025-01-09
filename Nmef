@@ -1,37 +1,206 @@
-Here’s a less formal version of your message:
+Got it! Let’s update the Confluence page to use a more detailed ADR template that includes options and their associated pros and cons. Here's the revised draft:
 
 
 ---
 
-Subject: Quick Discussion: Birdwatcher Stats and Position Controls
+Architecture Decision Records (ADR) Guidelines
 
-Hi [Architect's Name] and [Team Leader's Name],
+What is an ADR?
 
-I wanted to bring up a few points we should discuss about improving how we handle Birdwatcher stats. We can do this over email/chat if we can cover everything, or hop on a quick call if needed.
+An Architecture Decision Record (ADR) documents architectural decisions made within a project, including the options considered, their pros and cons, and the final decision. ADRs help teams maintain a history of decisions for clarity and alignment over time.
 
-The main idea is to start getting Birdwatcher stats from the Metadata API instead of Airflow. This would give us the flexibility to monitor ad-hoc jobs if needed. The key question is: what metrics can we enrich from RiskEngine so we still have all the measures we rely on today?
-
-Here are the most important controls we use right now:
-
-1. Position control (mostly from Vault and RiskEngine).
-
-
-2. Risk factors (from RiskEngine).
-
-
-3. Vault data (we already get this from Vault Solace notifications in Metadata).
-
-
-
-Another point is to start using the Report Server for position controls and detailed positions, which we currently pull from the Context Store.
-
-Let me know your thoughts! If it’s easier to talk it through, I’m happy to schedule a quick call.
-
-Cheers,
-[Your Name]
+For more details on ADRs, refer to Documenting Architecture Decisions by Michael Nygard.
 
 
 ---
 
-Let me know if you'd like further tweaks!
+Naming Conventions for ADRs
 
+Each ADR should follow this naming convention:
+
+ADR### - Short Title of the Decision
+
+###: Incremental number starting from 001.
+
+Short Title: Briefly describes the decision. Example:
+
+ADR001 - Use an SQS Queue to Manage Mail
+
+ADR002 - Choose PostgreSQL as the Database
+
+
+
+
+---
+
+ADR Template with Options
+
+Here’s the template we will follow for ADRs:
+
+1. Title
+
+A clear and concise name for the decision.
+
+
+2. Status
+
+Current status of the ADR: Proposed, Accepted, Superseded, or Deprecated.
+
+
+3. Context
+
+What is the problem? Provide background information and the factors leading to this decision.
+
+Why is this decision needed now? Explain the urgency or importance.
+
+
+4. Options Considered
+
+List the options evaluated, with their pros and cons. For each option:
+
+Option 1: [Option Name]
+
+Description: Brief explanation of the option.
+
+Pros:
+
+Advantage 1
+
+Advantage 2
+
+
+Cons:
+
+Disadvantage 1
+
+Disadvantage 2
+
+
+
+Option 2: [Option Name]
+
+Description: Brief explanation of the option.
+
+Pros:
+
+Advantage 1
+
+Advantage 2
+
+
+Cons:
+
+Disadvantage 1
+
+Disadvantage 2
+
+
+
+(Repeat for all options considered.)
+
+5. Decision
+
+State the chosen option and provide a detailed explanation of why it was selected.
+
+
+6. Consequences
+
+List the implications of this decision, including any follow-up tasks, risks, or long-term impacts.
+
+
+7. See Also
+
+Link related ADRs or relevant documentation for reference.
+
+
+
+---
+
+How to Create and Submit ADRs
+
+1. Draft the ADR:
+
+Use the template above to structure your ADR.
+
+Include all options, pros/cons, and reasoning.
+
+
+
+2. Submit a Pull Request:
+
+Create a branch named feature/adr###-short-title.
+
+Add the ADR file to the /adr folder in the repository.
+
+Include any diagrams (use PlantUML if needed) in the /adr folder.
+
+
+
+3. Review Process:
+
+Open a Pull Request (PR) titled ADR### - Short Title.
+
+Collaborate with the team to review and finalize the decision.
+
+
+
+4. Merge:
+
+After team approval, merge the PR into the main branch.
+
+
+
+
+
+---
+
+Where to Store ADRs
+
+All ADRs should be stored in the adr folder of the project repository:
+
+/project-root/adr/
+
+This ensures they are version-controlled and accessible.
+
+
+---
+
+Example ADR
+
+ADR001 - Use an SQS Queue to Manage Mail
+
+1. Status: Accepted
+
+
+2. Context: We need to handle a large volume of email notifications reliably and asynchronously.
+
+
+3. Options Considered:
+
+Option 1: Use an SQS Queue
+
+Pros: Scalable, reliable, integrates well with AWS Lambda.
+
+Cons: Requires additional setup and monitoring.
+
+
+Option 2: Direct Database Writes
+
+Pros: Simpler implementation.
+
+Cons: Less scalable, may lead to bottlenecks during peak load.
+
+
+
+
+4. Decision: Use an SQS queue because it ensures scalability and reliability for high-volume email notifications.
+
+
+5. Consequences: Set up SQS and integrate with the notification service. Monitor for errors or delays.
+
+
+
+
+---
+
+By following these guidelines, we ensure all architectural decisions are well-documented, consistent, and collaborative.

@@ -1,3 +1,163 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Architecture Decision Records (ADR) Guidelines</title>
+</head>
+<body>
+    <h1>Architecture Decision Records (ADR) Guidelines</h1>
+    
+    <h2>What is an ADR?</h2>
+    <p>An <strong>Architecture Decision Record (ADR)</strong> documents architectural decisions made within a project, including the options considered, their pros and cons, and the final decision. ADRs help teams maintain a history of decisions for clarity and alignment over time.</p>
+    <p>For more details on ADRs, refer to <a href="https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions" target="_blank">Documenting Architecture Decisions by Michael Nygard</a>.</p>
+
+    <h2>Naming Conventions for ADRs</h2>
+    <p>Each ADR should follow this naming convention:</p>
+    <pre><code>ADR### - Short Title of the Decision</code></pre>
+    <ul>
+        <li><strong>###</strong>: Incremental number starting from <code>001</code>.</li>
+        <li><strong>Short Title</strong>: Briefly describes the decision. Example:
+            <ul>
+                <li>ADR001 - Use an SQS Queue to Manage Mail</li>
+                <li>ADR002 - Choose PostgreSQL as the Database</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>ADR Template with Options</h2>
+    <p>Here’s the template we will follow for ADRs:</p>
+    <ol>
+        <li><strong>Title</strong>: A clear and concise name for the decision.</li>
+        <li><strong>Status</strong>: Current status of the ADR: <em>Proposed</em>, <em>Accepted</em>, <em>Superseded</em>, or <em>Deprecated</em>.</li>
+        <li><strong>Context</strong>: 
+            <ul>
+                <li><em>What is the problem?</em> Provide background information and the factors leading to this decision.</li>
+                <li><em>Why is this decision needed now?</em> Explain the urgency or importance.</li>
+            </ul>
+        </li>
+        <li><strong>Options Considered</strong>: List the options evaluated, with their pros and cons. For each option:
+            <ul>
+                <li><strong>Option 1: [Option Name]</strong>
+                    <ul>
+                        <li><strong>Description</strong>: Brief explanation of the option.</li>
+                        <li><strong>Pros</strong>:
+                            <ul>
+                                <li>Advantage 1</li>
+                                <li>Advantage 2</li>
+                            </ul>
+                        </li>
+                        <li><strong>Cons</strong>:
+                            <ul>
+                                <li>Disadvantage 1</li>
+                                <li>Disadvantage 2</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li><strong>Option 2: [Option Name]</strong>
+                    <ul>
+                        <li><strong>Description</strong>: Brief explanation of the option.</li>
+                        <li><strong>Pros</strong>:
+                            <ul>
+                                <li>Advantage 1</li>
+                                <li>Advantage 2</li>
+                            </ul>
+                        </li>
+                        <li><strong>Cons</strong>:
+                            <ul>
+                                <li>Disadvantage 1</li>
+                                <li>Disadvantage 2</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li><strong>Decision</strong>: State the chosen option and provide a detailed explanation of why it was selected.</li>
+        <li><strong>Consequences</strong>: List the implications of this decision, including any follow-up tasks, risks, or long-term impacts.</li>
+        <li><strong>See Also</strong>: Link related ADRs or relevant documentation for reference.</li>
+    </ol>
+
+    <h2>How to Create and Submit ADRs</h2>
+    <ol>
+        <li><strong>Draft the ADR</strong>:
+            <ul>
+                <li>Use the template above to structure your ADR.</li>
+                <li>Include all options, pros/cons, and reasoning.</li>
+            </ul>
+        </li>
+        <li><strong>Submit a Pull Request</strong>:
+            <ul>
+                <li>Create a branch named <code>feature/adr###-short-title</code>.</li>
+                <li>Add the ADR file to the <code>/adr</code> folder in the repository.</li>
+                <li>Include any diagrams (use PlantUML if needed) in the <code>/adr</code> folder.</li>
+            </ul>
+        </li>
+        <li><strong>Review Process</strong>:
+            <ul>
+                <li>Open a Pull Request (PR) titled <code>ADR### - Short Title</code>.</li>
+                <li>Collaborate with the team to review and finalize the decision.</li>
+            </ul>
+        </li>
+        <li><strong>Merge</strong>:
+            <ul>
+                <li>After team approval, merge the PR into the main branch.</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h2>Where to Store ADRs</h2>
+    <p>All ADRs should be stored in the <code>adr</code> folder of the project repository:</p>
+    <pre><code>/project-root/adr/</code></pre>
+    <p>This ensures they are version-controlled and accessible.</p>
+
+    <h2>Example ADR</h2>
+    <h3>ADR001 - Use an SQS Queue to Manage Mail</h3>
+    <ul>
+        <li><strong>Status</strong>: Accepted</li>
+        <li><strong>Context</strong>: We need to handle a large volume of email notifications reliably and asynchronously.</li>
+        <li><strong>Options Considered</strong>:
+            <ul>
+                <li><strong>Option 1: Use an SQS Queue</strong>
+                    <ul>
+                        <li><strong>Pros</strong>:
+                            <ul>
+                                <li>Scalable</li>
+                                <li>Reliable</li>
+                                <li>Integrates well with AWS Lambda</li>
+                            </ul>
+                        </li>
+                        <li><strong>Cons</strong>:
+                            <ul>
+                                <li>Requires additional setup and monitoring</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li><strong>Option 2: Direct Database Writes</strong>
+                    <ul>
+                        <li><strong>Pros</strong>:
+                            <ul>
+                                <li>Simpler implementation</li>
+                            </ul>
+                        </li>
+                        <li><strong>Cons</strong>:
+                            <ul>
+                                <li>Less scalable</li>
+                                <li>May lead to bottlenecks during peak load</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li><strong>Decision</strong>: Use an SQS queue because it ensures scalability and reliability for high-volume email notifications.</li>
+        <li><strong>Consequences</strong>: Set up SQS and integrate with the notification service. Monitor for errors or delays.</li>
+    </ul>
+</body>
+</html>
+
+
 Got it! Let’s update the Confluence page to use a more detailed ADR template that includes options and their associated pros and cons. Here's the revised draft:
 
 

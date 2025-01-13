@@ -1,6 +1,141 @@
+// Input variables
+var rollDate = 20230101;  // Replace with your target roll date
+var processIds = ["PROCESS123", "PROCESS456"];  // Replace with your process IDs
+
+// Backup collections
+var jobStatusEventsBackup = "JobStatusEvents_Backup";
+var jobStatusBackup = "JobStatus_Backup";
+var fileStatusBackup = "FileStatus_Backup";
+
+// Step 1: Backup `JobStatusEvents`
+print("Backing up JobStatusEvents...");
+db.JobStatusEvents.aggregate([
+    {
+        $match: {
+            rolldate: rollDate,
+            processId: { $in: processIds }
+        }
+    },
+    {
+        $merge: {
+            into: jobStatusEventsBackup,
+            whenMatched: "merge", // Merge if already exists
+            whenNotMatched: "insert" // Insert new documents
+        }
+    }
+]);
+print("Backup for JobStatusEvents completed.");
+
+// Step 2: Backup `JobStatus`
+print("Backing up JobStatus...");
+db.JobStatus.aggregate([
+    {
+        $match: {
+            rolldate: rollDate,
+            processId: { $in: processIds }
+        }
+    },
+    {
+        $merge: {
+            into: jobStatusBackup,
+            whenMatched: "merge",
+            whenNotMatched: "insert"
+        }
+    }
+]);
+print("Backup for JobStatus completed.");
+
+// Step 3: Backup `FileStatus`
+print("Backing up FileStatus...");
+db.FileStatus.aggregate([
+    {
+        $match: {
+            rolldate: rollDate,
+            processId: { $in: processIds }
+        }
+    },
+    {
+        $merge: {
+            into: fileStatusBackup,
+            whenMatched: "merge",
+            whenNotMatched: "insert"
+        }
+    }
+]);
+print("Backup for FileStatus completed.");
+
+// Step 4: Delete from `JobStatusEvents`
+print("Deleting from JobStatusEvents...");
+var eventsResult = db.JobStatusEvents.deleteMany({
+    rolldate: rollDate,
+    processId: { $in: processIds }
+});
+print("Deleted records from JobStatusEvents: " + eventsResult.deletedCount);
+
+// Step 5: Delete from `JobStatus`
+print("Deleting from JobStatus...");
+var jobResult = db.JobStatus.deleteMany({
+    rolldate: rollDate,
+    processId: { $in: processIds }
+});
+print("Deleted records from JobStatus: " + jobResult.deletedCount);
+
+// Step 6: Delete from `FileStatus`
+print("Deleting from FileStatus...");
+var fileResult = db.FileStatus.deleteMany({
+    rolldate: rollDate,
+    processId: { $in: processIds }
+});
+print("Deleted records from FileStatus: " + fileResult.deletedCount);
+
+print("Rollback script completed successfully. Backups are available for recovery if needed.");
+
+
+
+
+// Recover `JobStatusEvents`
+print("Recovering JobStatusEvents...");
+db.JobStatusEvents_Backup.aggregate([
+    {
+        $merge: {
+            into: "JobStatusEvents",
+            whenMatched: "merge",
+            whenNotMatched: "insert"
+        }
+    }
+]);
+print("Recovery for JobStatusEvents completed.");
+
+// Recover `JobStatus`
+print("Recovering JobStatus...");
+db.JobStatus_Backup.aggregate([
+    {
+        $merge: {
+            into: "JobStatus",
+            whenMatched: "merge",
+            whenNotMatched: "insert"
+        }
+    }
+]);
+print("Recovery for JobStatus completed.");
+
+// Recover `FileStatus`
+print("Recovering FileStatus...");
+db.FileStatus_Backup.aggregate([
+    {
+        $merge: {
+            into: "FileStatus",
+            whenMatched: "merge",
+            whenNotMatched: "insert"
+        }
+    }
+]);
+print("Recovery for FileStatus completed.");
+
 type(s).
 
 jobType (array of strings): Job type categories to filter by.
+
 
 
 

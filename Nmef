@@ -1,1 +1,91 @@
+# ADR001 - Separate Endpoints for Query Execution and File Retrieval
 
+## Status
+**Accepted**
+
+---
+
+## Context
+
+Our current service processes a user query through the following steps:
+1. Generates SQL from the query model.
+2. Executes the query in BigQuery.
+3. Exports the results to a GCS bucket.
+4. Streams the binary content of the results back to the user.
+
+Initially, we had a single synchronous endpoint to handle this entire process. However, we encountered the following challenges:
+- **Long Query Execution Times**: Some queries take too long to execute, causing the client to time out.
+- **BigQuery Export Size Limitation**: BigQuery has a maximum export file size of 1GB. For results larger than 1GB, the export must be split into multiple files.
+- **Complex Aggregation**: Streaming back aggregated results from multiple files to the user became complex and error-prone.
+
+To address these challenges, we decided to separate the functionality into two distinct endpoints.
+
+---
+
+## Options Considered
+
+### Option 1: Separate Endpoints for Query Execution and File Retrieval
+- **Description**: Create two endpoints:
+  1. An endpoint to launch the query, which returns metadata, including links to the generated result files in GCS.
+  2. An endpoint to retrieve the content of a specific result file by its link or identifier.
+
+- **Pros**:
+  - Decouples long-running query execution from result streaming.
+  - Simplifies the streaming process since each file can be fetched individually.
+  - Supports BigQuery’s split-export functionality natively.
+  - Allows better handling of large result sets and timeouts.
+  - Improves scalability by enabling asynchronous processing.
+
+- **Cons**:
+  - Requires the client to make multiple requests (one to launch the query, and another to fetch results).
+  - Additional complexity in tracking the status of the query and managing links to result files.
+
+---
+
+### Option 2: Keep the Single Synchronous Endpoint
+- **Description**: Continue using a single synchronous endpoint that handles query execution, exporting, and streaming the results back to the user.
+
+- **Pros**:
+  - Simpler for the client since only one request is needed.
+  - No need for the client to handle metadata or track result files.
+
+- **Cons**:
+  - Timeout issues with long-running queries.
+  - Cannot handle results exceeding BigQuery’s 1GB export size.
+  - Aggregating and streaming large results back to the user is complex and error-prone.
+  - Limited scalability and prone to failures under heavy load.
+
+---
+
+## Decision
+
+We decided to implement **Option 1: Separate Endpoints for Query Execution and File Retrieval**.  
+This approach addresses the timeout and export size limitations, simplifies the result streaming process, and supports asynchronous workflows for large result sets.
+
+---
+
+## Consequences
+
+1. **Implementation Changes**:
+   - Create two endpoints:
+     - **Query Execution Endpoint**: Accepts the query model and triggers the BigQuery job. Returns metadata with links to the exported result files.
+     - **File Retrieval Endpoint**: Accepts a file link or identifier and streams the content of the specified file to the user.
+   - Store metadata about the result files, including their links, in a persistent data store if needed.
+
+2. **Client-Side Changes**:
+   - Clients must first call the Query Execution Endpoint to get the metadata and then use the File Retrieval Endpoint to fetch the results.
+
+3. **Monitoring and Error Handling**:
+   - Implement robust monitoring for query execution and file exports.
+   - Ensure retry mechanisms for file retrieval in case of transient errors.
+
+4. **Performance and Scalability**:
+   - Improves scalability by decoupling query execution from result streaming.
+   - Handles large result sets efficiently with BigQuery’s split-export feature.
+
+---
+
+## See Also
+
+- [BigQuery documentation on Exporting Data](https://cloud.google.com/bigquery/docs/exporting-data)
+- [GCS documentation on Managing Objects](https://cloud.google.com/storage/docs/objects)

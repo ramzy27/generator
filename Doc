@@ -1,3 +1,22 @@
+
+SELECT
+  user_email,
+  query,
+  ROUND(bytes_processed / (1024 * 1024 * 1024), 2) AS gb_processed,
+  ROUND((bytes_processed / (1024 * 1024 * 1024 * 1024)) * 6.25, 2) AS estimated_cost_usd,
+  start_time,
+  job_type
+FROM
+  `region-eu.INFORMATION_SCHEMA.JOBS_BY_PROJECT`
+WHERE
+  job_type = "QUERY"
+  AND state = "DONE"
+  AND creation_time BETWEEN TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY) AND CURRENT_TIMESTAMP()
+ORDER BY
+  estimated_cost_usd DESC
+LIMIT 100;
+
+
 // Input variables
 var rollDate = 20230101;  // Replace with your target roll date
 var processIds = ["PROCESS123", "PROCESS456"];  // Replace with your process IDs

@@ -1,3 +1,6 @@
+"Listing directory before deletion:"
+                                ls -la /opt/risktore/maven/repository/log4j/log4j || echo "Directory not found."
+
 pipeline {
     agent none
     stages {

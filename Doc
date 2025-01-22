@@ -1,3 +1,125 @@
+Subject: Update on New Error Data Retrieval Feature & Storage Considerations
+
+Hello [Project Manager Name],
+
+I hope you’re doing well. I’d like to update you on the new feature implementation regarding how we retrieve error details for our risk positions, and highlight some concerns about file storage as we’ll be handling multiple jobs daily.
+
+
+---
+
+1. Summary of the New Workflow
+
+Multiple Endpoints:
+Our provider now supplies separate endpoints:
+
+1. One returns the list of positions in error.
+
+
+2. Another provides a list of Parquet files for a given job.
+
+
+3. A third allows us to download each file.
+
+
+
+Parquet Files (~50 MB each):
+We need to parse and merge data from these files to fully retrieve error details per position.
+
+Frequent Jobs:
+Because we process many jobs per day, we could be dealing with several 50 MB files regularly.
+
+
+
+---
+
+2. Storage & Disk Usage Considerations
+
+If we store all these Parquet files on local disk for every job, we’ll risk running into significant storage overhead. We have a few strategies to manage this:
+
+1. Ephemeral Storage:
+
+Download, parse, extract the relevant data, and delete the raw Parquet files.
+
+This prevents disk usage from accumulating but means we won’t keep the original files unless explicitly needed for audits.
+
+
+
+2. External Object Storage (e.g., S3/Blob):
+
+If we need raw files for long-term reference, we can offload them to a cloud service.
+
+Reduces local disk usage, but adds some operational overhead.
+
+
+
+3. Persist Only Relevant Data:
+
+Parse the Parquet files and store only the needed information in a database.
+
+Ensures quick lookups without re-parsing.
+
+We delete the full files once processing is done.
+
+
+
+
+We’ll choose the most efficient approach based on whether we need to reprocess old data frequently or store raw files for compliance. Our initial inclination is to process and discard, as long as the provider can re-supply files if we ever need them again.
+
+
+---
+
+3. Effort & Cost Estimates
+
+Implementing this new workflow involves:
+
+1. Requirements & Design (1–2 days)
+
+
+2. Endpoint Integration (1–2 days)
+
+
+3. Parquet Parsing & Aggregation (2–4 days)
+
+
+4. Merging & Business Logic (1–2 days)
+
+
+5. Performance, Resilience (1–2 days)
+
+
+6. Testing & Deployment (1–2 days)
+
+
+
+That brings us to roughly 7–13 days of development time, or about 2–3 weeks on the calendar if a single developer is focused on it. The final cost will depend on our standard daily rate multiplied by the total days, plus a 20–30% buffer for unforeseen complexities.
+
+
+---
+
+4. Next Steps & Approval
+
+Confirm Storage Approach: Decide whether we adopt ephemeral storage, external object storage, or a database approach for the files.
+
+Finalize Design: Once we confirm the storage strategy, I can finalize the technical plan and integration details.
+
+Implementation & Testing: We’ll proceed with development, ensure performance testing, and handle any scalability concerns.
+
+
+Please let me know if you have any questions or would like to discuss the storage options in more detail. Once we have your go-ahead on the approach, we can begin implementation.
+
+Thank you for your time, and I look forward to your feedback.
+
+
+---
+
+Best Regards,
+[Your Name]
+[Your Role / Team]
+[Your Contact Information]
+
+
+
+
 SELECT
   project_id,
   FORMAT_TIMESTAMP('%Y-%m', creation_time) AS usage_month,

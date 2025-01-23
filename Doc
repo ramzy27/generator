@@ -1,3 +1,74 @@
+ITH base_jobs AS (
+  SELECT
+    project_id,
+    user_email,
+    creation_time,
+    total_bytes_processed,
+    total_slot_ms,
+    query,
+    -- Convert bytes to TB and calculate approximate cost ($5 per TB)
+    (total_bytes_processed / POWER(2, 40)) * 5 as estimated_cost_usd
+  FROM `project-dev.region-us.INFORMATION_SCHEMA.JOBS_BY_PROJECT`
+  WHERE creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+  UNION ALL
+  SELECT 
+    project_id,
+    user_email,
+    creation_time,
+    total_bytes_processed,
+    total_slot_ms,
+    query,
+    (total_bytes_processed / POWER(2, 40)) * 5 as estimated_cost_usd
+  FROM `project-uat.region-us.INFORMATION_SCHEMA.JOBS_BY_PROJECT`
+  WHERE creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+),
+
+daily_metrics AS (
+  SELECT
+    project_id,
+    DATE(creation_time) as usage_date,
+    COUNT(*) as query_count,
+    SUM(total_bytes_processed) as total_bytes,
+    SUM(total_slot_ms) as total_slot_ms,
+    SUM(estimated_cost_usd) as daily_cost
+  FROM base_jobs
+  GROUP BY 1, 2
+),
+
+user_metrics AS (
+  SELECT
+    project_id,
+    user_email,
+    DATE(creation_time) as usage_date,
+    COUNT(*) as query_count,
+    SUM(total_bytes_processed) as total_bytes,
+    SUM(estimated_cost_usd) as user_daily_cost,
+    ARRAY_AGG(STRUCT(
+      query,
+      total_bytes_processed,
+      estimated_cost_usd,
+      creation_time
+    ) ORDER BY estimated_cost_usd DESC LIMIT 10) as top_queries
+  FROM base_jobs
+  GROUP BY 1, 2, 3
+)
+
+SELECT
+  -- Main metrics table for Looker Studio
+  um.project_id,
+  um.usage_date,
+  um.user_email,
+  um.query_count,
+  um.total_bytes,
+  um.user_daily_cost,
+  dm.daily_cost as project_daily_cost,
+  um.top_queries
+FROM user_metrics um
+JOIN daily_metrics dm 
+  ON dm.project_id = um.project_id 
+  AND dm.usage_date = um.usage_date
+ORDER BY um.usage_date DESC, um.user_daily_cost DESC
+
 Subject: Notice of New Feature Implementation & Preliminary Cost Estimate
 
 Hello [Project Manager Name],

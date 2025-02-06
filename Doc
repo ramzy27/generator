@@ -1,3 +1,9 @@
+Here is a brief overview of our discussion. Ramzi presented the rising BigQuery costs observed on Riskstore, illustrated by a new Looker Studio report. It became clear that most of these expenses result from the thousands of queries generated each day by the Looker Studio “recon” report.
+
+We agreed that the real solution lies in optimizing these queries rather than simply limiting usage. Chris has already asked users to stop using the recon report temporarily, giving us time to investigate and improve. As the report owner, William will handle immediate fixes to reduce costs.
+
+In the longer term, Chris and Richard suggested a Report Server API that would provide a data frame to users, allowing them to adapt the information as needed. Ramzi will collaborate with William to optimize and analyze the report further. Alexandre also recommended contacting Google for expert advice on optimizing BigQuery queries within Looker Studio
+
 ITH base_jobs AS (
   SELECT
     project_id,

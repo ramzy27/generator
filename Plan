@@ -1,0 +1,7 @@
+Task ID,Task Title,Description,Estimated Duration,Sprint
+1,Requirements & Design,"Gather requirements, confirm data formats, and outline how to handle multiple endpoints & Parquet files",TBD,Sprint 1
+2,Integration with New Endpoints,"Implement calls to the provider’s endpoints for positions and Parquet file listings, including error handling",TBD,Sprint 1
+3,Parquet Parsing & Aggregation,"Download and parse ~50MB Parquet files, handle memory usage, and merge data for each position in error",TBD,Sprint 2
+4,Performance & Resilience,"Assess and implement caching strategies, concurrency controls, and fallback mechanisms for large or concurrent file processing",TBD,Sprint 2
+5,Merging & Business Logic,"Join parsed data with position IDs, handle edge cases (missing data, large files), and finalize logic for returning complete error details",TBD,Sprint 2
+6,Testing & Deployment,"Conduct integration tests, handle user acceptance testing, and roll out to production environments",TBD,Sprint 3

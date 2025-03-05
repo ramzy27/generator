@@ -1,4 +1,50 @@
+@ExtendWith(MockitoExtension.class)
+class YourTestClass {
+    @Mock
+    private RestClient restClient;
 
+    @Mock
+    private RestClient.RequestHeadersUriSpec<?> mockRequestHeadersUriSpec;
+
+    @Mock
+    private RestClient.RequestHeadersSpec<?> mockRequestHeadersSpec;
+
+    @Mock
+    private RestClient.ResponseSpec mockResponseSpec;
+
+    @Mock
+    private RestClient.ResponseBodySpec mockResponseBodySpec;
+
+    @Test
+    void downloadParquetFile() {
+        // Arrange
+        String bucketName = "bucket1";
+        String objectName = "object1";
+        String url = "http://localhost:8080/downloadParquetFile";
+        byte[] fileContent = "file content".getBytes();
+
+        // Mocking the entire method chain
+        when(restClient.get()).thenReturn(mockRequestHeadersUriSpec);
+        
+        when(mockRequestHeadersUriSpec.uri(anyString()))
+            .thenReturn(mockRequestHeadersSpec);
+        
+        when(mockRequestHeadersSpec.headers(any()))
+            .thenReturn(mockRequestHeadersSpec);
+        
+        when(mockRequestHeadersSpec.retrieve())
+            .thenReturn(mockResponseSpec);
+        
+        when(mockResponseSpec.body(byte[].class))
+            .thenReturn(fileContent);
+
+        // Act
+        byte[] response = vaultRestService.downloadParquetFile(bucketName, objectName);
+
+        // Assert
+        assertArrayEquals(fileContent, response);
+    }
+}
 
 #!/bin/bash
 set -e  # Exit immediately if a command exits with a non-zero status

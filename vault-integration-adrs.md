@@ -418,3 +418,107 @@ MT -> MT : Clean up all resources
 
 @enduml
 ```
+
+# ADR010: Parquet File Processing Strategy
+
+## Status
+Proposed
+
+## Context
+Our system needs to process Parquet files efficiently, with specific requirements:
+- Handle files up to 50MB in size
+- Perform memory-conscious processing
+- Convert Parquet data to domain objects
+- Support multiple file consolidation for a single job
+
+## Options Considered
+
+### Option 1: Apache Parquet Native Java Library with Iterative Processing
+**Pros:**
+- Native support for Parquet files
+- Lightweight implementation
+- Direct integration with Java ecosystem
+- Minimal external dependencies
+- Straightforward parsing mechanism
+
+**Cons:**
+- Potential performance overhead for very large files
+- Manual memory management required
+- Less advanced parsing capabilities compared to specialized libraries
+
+### Option 2: Apache Spark for Parquet Processing
+**Pros:**
+- Robust big data processing
+- Advanced parsing capabilities
+- Distributed computing support
+
+**Cons:**
+- Heavyweight solution
+- Significant overhead for small to medium files
+- Complex setup and configuration
+- Overkill for our current use case
+
+### Option 3: Custom Streaming Parquet Processor
+**Pros:**
+- Complete control over processing
+- Optimized for specific use case
+- Minimal dependencies
+
+**Cons:**
+- Increased development complexity
+- Potential performance and reliability challenges
+- Requires significant initial implementation effort
+
+## Decision
+**Selected Option: Option 1 - Apache Parquet Native Java Library with Iterative Processing**
+
+Rationale:
+- Simplest and most direct approach
+- Aligns with project's complexity requirements
+- Provides sufficient performance for expected file sizes
+- Minimizes external dependencies
+- Easy to understand and maintain
+
+## Consequences
+**Positive:**
+- Simple implementation
+- Low computational overhead
+- Easy to test and debug
+- Minimal external library dependencies
+
+**Negative:**
+- Manual implementation of parsing logic
+- Potential performance limitations for extremely large files
+- Requires careful memory management
+
+**Technical Debt:**
+- Need for comprehensive error handling
+- Potential future optimization requirements
+- Ongoing performance monitoring
+
+## Processing Strategy
+1. Retrieve list of Parquet file URLs for a job
+2. Download files sequentially
+3. Parse each file using Apache Parquet library
+4. Accumulate records into a consolidated collection
+5. Apply error position matching after full processing
+
+## Memory Management Considerations
+- Process files iteratively
+- Use streaming techniques to minimize memory consumption
+- Implement incremental record collection
+- Consider pagination or chunked processing for very large datasets
+
+## Recommended Implementation Details
+1. Use `ParquetReader` for file parsing
+2. Implement incremental record collection
+3. Create utility classes for Parquet-to-domain object mapping
+4. Develop comprehensive error handling mechanisms
+5. Design flexible record aggregation strategy
+
+## Recommended Next Steps
+1. Select appropriate Apache Parquet Java library
+2. Create proof-of-concept implementation
+3. Develop comprehensive test scenarios
+4. Benchmark processing performance
+5. Document processing strategy and considerations

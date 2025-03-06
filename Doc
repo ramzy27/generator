@@ -1,3 +1,559 @@
+package com.example.service;
+
+import org.bson.Document;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.client.RestClientTest;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClient;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
+
+@RestClientTest(VaultRestService.class)
+public class VaultRestServiceTest {
+
+    @Autowired
+    private RestClient restClient;
+
+    @Autowired
+    private MockRestServiceServer server;
+
+    @Mock
+    private PropertiesConfig propertiesConfig;
+
+    @Mock
+    private VaultToken vaultToken;
+
+    @Mock
+    private VaultTokenRequester vaultTokenRequester;
+
+    private VaultRestService vaultRestService;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
+        
+        // Setup mock configurations
+        when(propertiesConfig.getOauthUrl()).thenReturn("http://oauth-server.com");
+        when(propertiesConfig.getOauthClientId()).thenReturn("client-id");
+        when(propertiesConfig.getOauthClientSecret()).thenReturn("client-secret");
+        when(propertiesConfig.getVaultServiceUser()).thenReturn("service-user");
+        when(propertiesConfig.getVaultServicePassword()).thenReturn("service-password");
+        when(propertiesConfig.getVaultServiceApiRetry()).thenReturn(3);
+        
+        // URLs for API calls
+        when(propertiesConfig.getErrorPositionUrl()).thenReturn("http://api.example.com/error/{job}/{riskSourceIds}/{jobUUID}/{cf}");
+        when(propertiesConfig.getParquetFileListingsUrl()).thenReturn("http://api.example.com/parquet/{job}/{jobUUID}");
+        when(propertiesConfig.getDownloadParquetFileUrl()).thenReturn("http://api.example.com/download/{bucketName}/{objectName}");
+        
+        // Create service with mocked dependencies
+        vaultRestService = new VaultRestService(propertiesConfig, restClient);
+        
+        // Manually set the token requester and token
+        try {
+            java.lang.reflect.Field tokenRequesterField = VaultRestService.class.getDeclaredField("vaultTokenRequester");
+            tokenRequesterField.setAccessible(true);
+            tokenRequesterField.set(vaultRestService, vaultTokenRequester);
+            
+            java.lang.reflect.Field tokenField = VaultRestService.class.getDeclaredField("vaultToken");
+            tokenField.setAccessible(true);
+            tokenField.set(vaultRestService, vaultToken);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to set up test", e);
+        }
+        
+        // Setup token behavior
+        when(vaultToken.getToken()).thenReturn("mock-token");
+        doNothing().when(vaultToken).renewToken();
+    }
+
+    @Test
+    public void testGetResponse_Success() {
+        // Setup mock response
+        String responseBody = "{ \"status\": \"success\", \"data\": \"test data\" }";
+        server.expect(requestTo("http://api.example.com/test"))
+                .andExpect(method(org.springframework.http.HttpMethod.GET))
+                .andExpect(header("authorization", "Bearer mock-token"))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        // Execute test
+        Document result = vaultRestService.getResponse("http://api.example.com/test", "");
+        
+        // Verify
+        assertThat(result).isNotNull();
+        assertThat(result.getString("status")).isEqualTo("success");
+        assertThat(result.getString("data")).isEqualTo("test data");
+        
+        // Verify token was renewed
+        verify(vaultToken, times(1)).renewToken();
+        
+        // Verify server expectations
+        server.verify();
+    }
+
+    // 5. Test validation with parameterized tests
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t", "\n"})
+    public void testGetResponse_InvalidUri(String uri) {
+        // Execute test and expect exception
+        assertThrows(IllegalArgumentException.class, () -> {
+            vaultRestService.getResponse(uri, "test-data");
+        });
+    }
+
+    // 5. Test validation with parameterized tests
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t", "\n"})
+    public void testGetErrorPositionInformation_InvalidJob(String job) {
+        // Execute test and expect exception
+        assertThrows(IllegalArgumentException.class, () -> {
+            vaultRestService.getErrorPositionInformation(job, "riskId", "jobId", "cf");
+        });
+    }
+
+    @Test
+    public void testGetResponse_EmptyResponse() {
+        // Setup mock response
+        String responseBody = "{}";
+        server.expect(requestTo("http://api.example.com/test"))
+                .andExpect(method(org.springframework.http.HttpMethod.GET))
+                .andExpect(header("authorization", "Bearer mock-token"))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        // Execute test and expect exception
+        SharinganException exception = assertThrows(SharinganException.class, () -> {
+            vaultRestService.getResponse("http://api.example.com/test", "");
+        });
+        
+        // Verify exception message
+        assertThat(exception.getMessage()).contains("Empty or null response from service");
+        
+        // Verify server expectations
+        server.verify();
+    }
+
+    @Test
+    public void testGetResponse_ServerError() {
+        // Setup mock response
+        server.expect(requestTo("http://api.example.com/test"))
+                .andExpect(method(org.springframework.http.HttpMethod.GET))
+                .andExpect(header("authorization", "Bearer mock-token"))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        // Execute test and expect exception
+        SharinganException exception = assertThrows(SharinganException.class, () -> {
+            vaultRestService.getResponse("http://api.example.com/test", "");
+        });
+        
+        // Verify exception message
+        assertThat(exception.getMessage()).contains("Calling vault REST service failed");
+        
+        // Verify server expectations
+        server.verify();
+    }
+
+    @Test
+    public void testGetErrorPositionInformation_Success() {
+        // Setup expected URL with parameters
+        String job = "job1";
+        String riskSourceIds = "risk1,risk2";
+        String jobUUID = "uuid123";
+        String cf = "cf456";
+        String expectedUrl = "http://api.example.com/error/job1/risk1,risk2/uuid123/cf456";
+        
+        // Setup mock response
+        String responseBody = "{ \"position\": \"line 42\", \"error\": \"syntax error\" }";
+        server.expect(requestTo(expectedUrl))
+                .andExpect(method(org.springframework.http.HttpMethod.GET))
+                .andExpect(header("authorization", "Bearer mock-token"))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        // Execute test
+        Document result = vaultRestService.getErrorPositionInformation(job, riskSourceIds, jobUUID, cf);
+        
+        // Verify
+        assertThat(result).isNotNull();
+        assertThat(result.getString("position")).isEqualTo("line 42");
+        assertThat(result.getString("error")).isEqualTo("syntax error");
+        
+        // Verify server expectations
+        server.verify();
+    }
+
+    @Test
+    public void testGetParquetFileListings_Success() {
+        // Setup expected URL with parameters
+        String job = "job1";
+        String jobUUID = "uuid123";
+        String expectedUrl = "http://api.example.com/parquet/job1/uuid123";
+        
+        // Setup mock response
+        String responseBody = "{ \"files\": [\"file1.parquet\", \"file2.parquet\"] }";
+        server.expect(requestTo(expectedUrl))
+                .andExpect(method(org.springframework.http.HttpMethod.GET))
+                .andExpect(header("authorization", "Bearer mock-token"))
+                .andRespond(withSuccess(responseBody, MediaType.APPLICATION_JSON));
+
+        // Execute test
+        Document result = vaultRestService.getParquetFileListings(job, jobUUID);
+        
+        // Verify
+        assertThat(result).isNotNull();
+        assertThat(result.get("files", java.util.List.class)).contains("file1.parquet", "file2.parquet");
+        
+        // Verify server expectations
+        server.verify();
+    }
+
+    @Test
+    public void testDownloadParquetFile_Success() {
+        // Setup expected URL with parameters
+        String bucketName = "bucket1";
+        String objectName = "object1.parquet";
+        String expectedUrl = "http://api.example.com/download/bucket1/object1.parquet";
+        
+        // Sample binary data
+        byte[] sampleData = "binary parquet data".getBytes();
+        
+        // Setup mock response
+        server.expect(requestTo(expectedUrl))
+                .andExpect(method(org.springframework.http.HttpMethod.GET))
+                .andExpect(header("authorization", "Bearer mock-token"))
+                .andRespond(withSuccess(sampleData, MediaType.APPLICATION_OCTET_STREAM));
+
+        // Execute test
+        byte[] result = vaultRestService.downloadParquetFile(bucketName, objectName);
+        
+        // Verify
+        assertThat(result).isEqualTo(sampleData);
+        
+        // Verify server expectations
+        server.verify();
+    }
+
+    // 5. Test malformed response handling
+    @Test
+    public void testGetResponse_MalformedJsonResponse() {
+        // Setup mock response with invalid JSON
+        String invalidJson = "{ This is not valid JSON";
+        server.expect(requestTo("http://api.example.com/test"))
+                .andExpect(method(org.springframework.http.HttpMethod.GET))
+                .andExpect(header("authorization", "Bearer mock-token"))
+                .andRespond(withSuccess(invalidJson, MediaType.APPLICATION_JSON));
+
+        // Execute test and expect exception
+        SharinganException exception = assertThrows(SharinganException.class, () -> {
+            vaultRestService.getResponse("http://api.example.com/test", "");
+        });
+        
+        // Verify exception message
+        assertThat(exception.getMessage()).contains("Calling vault REST service failed");
+        
+        // Verify server expectations
+        server.verify();
+    }
+}
+
+
+package com.example.service; // Assuming package name
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.retry.support.RetrySynchronizationManager;
+import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestClient;
+import org.bson.Document;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.util.Collections;
+import java.util.UUID;
+
+import static java.util.Objects.requireNonNull;
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class VaultRestService implements InitializingBean {
+
+    private final PropertiesConfig propertiesConfig;
+    private final RestClient restClient;
+    
+    private VaultTokenRequester vaultTokenRequester;
+    private VaultToken vaultToken;
+
+    // 1. Custom annotation for retry configuration
+    @Target({ElementType.METHOD})
+    @Retention(RetentionPolicy.RUNTIME)
+    @Retryable(
+            retryFor = SharinganException.class, 
+            maxAttemptsExpression = "${vault.service.api.retry}",
+            backoff = @Backoff(
+                    delayExpression = "#{${context.service.retry.pause.duration} * 1000}", 
+                    multiplier = 1
+            )
+    )
+    public @interface VaultRetryable {}
+
+    @Override
+    public void afterPropertiesSet() {
+        vaultTokenRequester = new VaultTokenRequester(
+                propertiesConfig.getOauthUrl(),
+                propertiesConfig.getOauthClientId(),
+                propertiesConfig.getOauthClientSecret(),
+                propertiesConfig.getVaultServiceUser(),
+                propertiesConfig.getVaultServicePassword()
+        );
+        vaultToken = new VaultToken(this.vaultTokenRequester);
+    }
+
+    @VaultRetryable
+    public Document getResponse(@NonNull String uri, String data) {
+        Assert.hasText(uri, "URI must not be empty");
+        
+        String requestId = generateRequestId();
+        log.info("Request [{}]: Calling endpoint {} with data: {}", requestId, uri, data);
+        
+        int retryCount = requireNonNull(RetrySynchronizationManager.getContext()).getRetryCount();
+        
+        if (retryCount != 0) {
+            log.info("Request [{}]: Retry attempt {} for url {}, params: {}", requestId, retryCount, uri, data);
+        }
+        
+        try {
+            String response = executeGetRequest(uri, String.class, requestId);
+            
+            // 4. Added detailed logging
+            if (log.isDebugEnabled()) {
+                log.debug("Request [{}]: Received response: {}", requestId, 
+                        response != null ? response.substring(0, Math.min(response.length(), 1000)) + "..." : "null");
+            }
+            
+            if (StringUtils.hasText(response)) {
+                Document document = Document.parse(response);
+                if (document != null && !document.isEmpty()) {
+                    log.info("Request [{}]: Successfully processed response from {}", requestId, uri);
+                    return document;
+                }
+            }
+            
+            log.warn("Request [{}]: Empty response for service {}. Params = {}", requestId, uri, data);
+            throw new SharinganException("Empty or null response from service");
+            
+        } catch (HttpStatusCodeException e) {
+            log.error("Request [{}]: Error code {} received when calling {}, data: {}.", 
+                    requestId, e.getStatusCode(), uri, data, e);
+            throw new SharinganException("Calling vault REST service failed with status code: " + e.getStatusCode());
+        } catch (Exception e) {
+            log.error("Request [{}]: Error while getting data from {}. Params = {}", requestId, uri, data, e);
+            throw new SharinganException("Calling vault REST service failed", e);
+        }
+    }
+
+    @VaultRetryable
+    public Document getErrorPositionInformation(@NonNull String job, @NonNull String riskSourceIds, 
+                                            @NonNull String jobUUID, @NonNull String cf) {
+        // 5. Input validation
+        Assert.hasText(job, "Job must not be empty");
+        Assert.hasText(riskSourceIds, "Risk source IDs must not be empty");
+        Assert.hasText(jobUUID, "Job UUID must not be empty");
+        Assert.hasText(cf, "CF must not be empty");
+        
+        String requestId = generateRequestId();
+        log.info("Request [{}]: Getting error position for job: {}, riskSourceIds: {}, jobUUID: {}, cf: {}", 
+                requestId, job, riskSourceIds, jobUUID, cf);
+                
+        String url = buildErrorPositionUrl(job, riskSourceIds, jobUUID, cf);
+        log.info("Request [{}]: Calling getErrorPositionInformation with URL: {}", requestId, url);
+        
+        String response = executeGetRequest(url, String.class, requestId);
+        
+        // 4. Log response for debugging
+        if (log.isDebugEnabled()) {
+            log.debug("Request [{}]: Error position response: {}", requestId, 
+                    response != null ? response.substring(0, Math.min(response.length(), 1000)) + "..." : "null");
+        }
+        
+        Document result = Document.parse(response);
+        log.info("Request [{}]: Successfully retrieved error position information", requestId);
+        return result;
+    }
+
+    @VaultRetryable
+    public Document getParquetFileListings(@NonNull String job, @NonNull String jobUUID) {
+        // 5. Input validation
+        Assert.hasText(job, "Job must not be empty");
+        Assert.hasText(jobUUID, "Job UUID must not be empty");
+        
+        String requestId = generateRequestId();
+        log.info("Request [{}]: Getting parquet file listings for job: {}, jobUUID: {}", 
+                requestId, job, jobUUID);
+                
+        String url = buildParquetFileListingsUrl(job, jobUUID);
+        log.info("Request [{}]: Calling getParquetFileListings with URL: {}", requestId, url);
+        
+        String response = executeGetRequest(url, String.class, requestId);
+        
+        // 4. Log response for debugging
+        if (log.isDebugEnabled()) {
+            log.debug("Request [{}]: Parquet file listings response: {}", requestId, 
+                    response != null ? response.substring(0, Math.min(response.length(), 1000)) + "..." : "null");
+        }
+        
+        Document result = Document.parse(response);
+        log.info("Request [{}]: Successfully retrieved parquet file listings", requestId);
+        return result;
+    }
+
+    @VaultRetryable
+    public byte[] downloadParquetFile(@NonNull String bucketName, @NonNull String objectName) {
+        // 5. Input validation
+        Assert.hasText(bucketName, "Bucket name must not be empty");
+        Assert.hasText(objectName, "Object name must not be empty");
+        
+        String requestId = generateRequestId();
+        log.info("Request [{}]: Downloading parquet file from bucket: {}, object: {}", 
+                requestId, bucketName, objectName);
+                
+        String url = buildDownloadParquetFileUrl(bucketName, objectName);
+        log.info("Request [{}]: Calling downloadParquetFile with URL: {}", requestId, url);
+        
+        byte[] data = executeGetRequest(url, byte[].class, requestId);
+        
+        // 4. Log response size for debugging
+        if (data != null) {
+            log.debug("Request [{}]: Downloaded {} bytes from parquet file", requestId, data.length);
+        } else {
+            log.warn("Request [{}]: Downloaded parquet file is null", requestId);
+        }
+        
+        log.info("Request [{}]: Successfully downloaded parquet file", requestId);
+        return data;
+    }
+
+    // 5. Helper methods for URL building
+    private String buildErrorPositionUrl(String job, String riskSourceIds, String jobUUID, String cf) {
+        return propertiesConfig.getErrorPositionUrl()
+                .replace("{job}", job)
+                .replace("{riskSourceIds}", riskSourceIds)
+                .replace("{jobUUID}", jobUUID)
+                .replace("{cf}", cf);
+    }
+    
+    private String buildParquetFileListingsUrl(String job, String jobUUID) {
+        return propertiesConfig.getParquetFileListingsUrl()
+                .replace("{job}", job)
+                .replace("{jobUUID}", jobUUID);
+    }
+    
+    private String buildDownloadParquetFileUrl(String bucketName, String objectName) {
+        return propertiesConfig.getDownloadParquetFileUrl()
+                .replace("{bucketName}", bucketName)
+                .replace("{objectName}", objectName);
+    }
+
+    // 4. Added requestId for improved logging
+    private <T> T executeGetRequest(String url, Class<T> responseType, String requestId) {
+        try {
+            log.debug("Request [{}]: Renewing token before request", requestId);
+            vaultToken.renewToken();
+            
+            HttpHeaders headers = createHeaders();
+            
+            log.debug("Request [{}]: Executing GET request to {}", requestId, url);
+            T response = restClient.get()
+                    .uri(url)
+                    .headers(httpHeaders -> httpHeaders.addAll(headers))
+                    .retrieve()
+                    .body(responseType);
+                    
+            log.debug("Request [{}]: Received response from {}", requestId, url);
+            return response;
+            
+        } catch (HttpStatusCodeException e) {
+            log.error("Request [{}]: Error code {} received when calling {}.", 
+                    requestId, e.getStatusCode(), url, e);
+            throw new SharinganException("Calling vault REST service failed", e);
+        } catch (Exception e) {
+            log.error("Request [{}]: Error while getting data from {}.", requestId, url, e);
+            throw new SharinganException("Calling vault REST service failed", e);
+        }
+    }
+    
+    // 5. Helper method for creating headers
+    private HttpHeaders createHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("authorization", "Bearer " + vaultToken.getToken());
+        return headers;
+    }
+    
+    // 4. Helper method for generating request IDs
+    private String generateRequestId() {
+        return UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    @Recover
+    public Document recoverDocument(SharinganException e, String uri, String data) {
+        log.error("Failed to call url {} with params {} after {} retries.", 
+                uri, data, propertiesConfig.getVaultServiceApiRetry());
+        return null;
+    }
+
+    @Recover
+    public Document recoverErrorPosition(SharinganException e, String job, String riskSourceIds, String jobUUID, String cf) {
+        log.error("Failed to get error position information after {} retries. Job: {}, riskSourceIds: {}, jobUUID: {}, cf: {}", 
+                propertiesConfig.getVaultServiceApiRetry(), job, riskSourceIds, jobUUID, cf);
+        return null;
+    }
+
+    @Recover
+    public Document recoverParquetListings(SharinganException e, String job, String jobUUID) {
+        log.error("Failed to get parquet file listings after {} retries. Job: {}, jobUUID: {}", 
+                propertiesConfig.getVaultServiceApiRetry(), job, jobUUID);
+        return null;
+    }
+
+    @Recover
+    public byte[] recoverDownload(SharinganException e, String bucketName, String objectName) {
+        log.error("Failed to download parquet file after {} retries. bucketName: {}, objectName: {}", 
+                propertiesConfig.getVaultServiceApiRetry(), bucketName, objectName);
+        return null;
+    }
+}
+
+
+
+
+
+
 @ExtendWith(MockitoExtension.class)
 class YourTestClass {
     @Mock

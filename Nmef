@@ -1,3 +1,56 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Detect Old Log4j Dependencies') {
+            steps {
+                script {
+                    // Adjust the base directory if needed
+                    def baseDir = '.'
+                    def log4jPattern = ~/log4j:log4j/
+
+                    def projectsWithOldLog4j = []
+
+                    sh """
+                        find ${baseDir} -name 'pom.xml' | while read pom; do
+                            projectDir=\$(dirname \${pom})
+                            echo "Scanning \${projectDir}..."
+                            output=\$(cd \${projectDir} && mvn dependency:tree -Dverbose -Dincludes=*log4j* -DoutputFile=log4j_deps.txt)
+
+                            if grep -E "log4j:log4j" \${projectDir}/log4j_deps.txt > /dev/null; then
+                                echo "Old Log4j found in \${projectDir}"
+                                echo \${projectDir} >> projects_with_old_log4j.txt
+                            fi
+
+                            rm \${projectDir}/log4j_deps.txt
+                        done
+                    """
+
+                    // Read and print projects with issues
+                    if (fileExists('projects_with_old_log4j.txt')) {
+                        projectsWithOldLog4j = readFile('projects_with_old_log4j.txt').trim().split('\n')
+                        echo "\u001B[31mProjects with old log4j detected:\u001B[0m"
+                        projectsWithOldLog4j.each { project ->
+                            echo "- ${project}"
+                        }
+
+                        error("Old log4j dependencies detected! See above.")
+                    } else {
+                        echo "\u001B[32mNo old Log4j dependencies detected.\u001B[0m"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
+
+
 # ADR001 - Separate Endpoints for Query Execution and File Retrieval
 
 ## Status

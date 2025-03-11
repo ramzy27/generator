@@ -1,3 +1,90 @@
+
+import requests
+import subprocess
+import shutil
+import os
+from pathlib import Path
+from getpass import getpass
+
+BITBUCKET_BASE_URL = "https://your-bitbucket-server.com"  # Replace with your Bitbucket URL
+PROJECT_KEY = "your-project-key"  # Replace with your Bitbucket project key
+
+username = input("Bitbucket Username: ")
+password = getpass("Bitbucket Password: ")
+
+def get_repos():
+    repos = []
+    api_url = f"{BITBUCKET_BASE_URL}/rest/api/1.0/projects/{PROJECT_KEY}/repos"
+    response = requests.get(api_url, auth=(username, password))
+    response_json = response.json()
+
+    for repo in response_json['values']:
+        repos.append(repo['links']['clone'][0]['href'])
+
+    return repos
+
+def check_log4j(repo_url, username, password):
+    temp_dir = Path("./temp_repo")
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir)
+
+    auth_repo_url = repo_url.replace("https://", f"https://{username}:{password}@")
+
+    print(f"\nScanning {repo_url}")
+    try:
+        subprocess.run(["git", "clone", "--depth", "1", auth_repo_url, temp_dir],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+        pom_file = temp_dir / "pom.xml"
+        if pom_file.exists():
+            result = subprocess.run(
+                ["mvn", "dependency:tree", "-Dverbose", "-Dincludes=*log4j*"],
+                cwd=temp_dir,
+                capture_output=True, text=True)
+
+            if "log4j:log4j" in result.stdout:
+                print(f"[!] Old log4j detected in {repo_url}")
+                return True
+            else:
+                print(f"[OK] No old log4j in {repo_url}")
+                return False
+        else:
+            print(f"[SKIP] pom.xml not found in {repo_url}")
+            return False
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Could not scan {repo_url}: {e}")
+        return False
+    finally:
+        shutil.rmtree(temp_dir)
+
+if __name__ == "__main__":
+    username = input("Enter your Bitbucket username: ")
+    password = getpass("Enter your Bitbucket password: ")
+    
+    repos = get_repos()
+    vulnerable_repos = []
+
+    for repo in repos:
+        auth_repo = repo.replace("https://", f"https://{username}:{password}@")
+        if check_log4j(authenticated_repo_url, username, password):
+            vulnerable_repos.append(repo)
+
+    print("\n--- Summary ---")
+    if vulnerable_repos:
+        print("Repositories using old Log4j:")
+        for repo in vulnerable_repos:
+            print(f"- {repo}")
+    else:
+        print("No repositories with old Log4j detected.")
+
+### Usage:
+
+- Replace:
+  - `BITBUCKET_BASE_URL` with your Bitbucket URL.
+  - `PROJECT_KEY` with your actual project key.
+- Run the script:
+```bash
+python check_log4j.py
 pipeline {
     agent any
 

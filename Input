@@ -1,0 +1,153 @@
+public class MonitorService {
+
+RISKEngineRestServ
+
+public Boolean getAndSavePositionControlPricingError(final Integer rolldate, Sille L CAO +3
+
+final String cutoff) throws Exception {
+
+Document job riskStoreRepository.getJob(rolldate, snap, jobName);
+
+List<Document> pricingErrorPositions = new ArrayList<>();
+
+Map<Long, Integer> epiToValidPvCount = new HashMap<>();
+
+Integer partialErrorCount = 0;
+
+Integer fullErrorCount = 0;
+
+String snapUUID = RiskStoreCommonUtil.getSnapUUID (rolldate, snap, propertiesConfig.getVaultSnapSplitSuffix());
+
+String url = MessageFormat.format(propertiesConfig.getVaultServiceGetResult(), ...arguments: snapUUID, jobUUID, 8, 720)
+
++ "&p=riskSourceID"
+
++ "&p=scenarioSets.modelSet.valuation.pv.tensor.values"
+
++ "&p=scenarioSets.modelSet.valuation.pv.tensor.errors"
+
++ "&p=scenarioSets.modelSet.valuation.pv.error"
+
+// IMA_RTPL_EXPLAIN structure
+
++ "&p=scenarioSets.modelSet.PnL.explains.valuation.pv.error"
+
++ "&cf=pricingError";
+
+logger.info("try to ask vault for rolldate: {}, snap:{} url: {}", rolldate, snapUUID, url);
+
+try {
+
+Document response = vaultRestService.getResponse (url, data: null);
+
+int resultCount = response != null && response.containsKey(RESP_RESULT_COUNT)? response.getInteger(RESP_RESULT_COUNT): 0;
+
+logger.info("get response from vault, the count of result: {}", resultCount);
+
+if (resultCount > 0) {
+
+List<Document> body = RiskStoreCommonUtil.getSubDocumentList(response, subDocumentName: "body");
+
+Set<Long> positionsSet = new HashSet<>();
+
+Document jobStatus = riskStoreRepository.findJobStatus ByRolldateJobNameJobUUID (rolldate, jobName, jobUUID);
+
+for (Document doc: body) {
+
+Long riskSourceID = RiskStoreCommonUtil.getNestedLong (doc, keys: "riskSourceID");
+
+positionsSet.add(riskSourceID);
+
+Document pep new Document()
+List<Document> errors = RiskStoreCommonUtil.getNestedDocList(doc, keys: "scenarioSets.modelSet.valuation.pv.tensor.errors");
+
+Integer expectedNumberScenarios = null;
+
+if (null != jobStatus) {
+
+expectedNumberScenarios = RiskStoreCommonUtil.getNestedInteger(jobStatus, keys: "processes.scenarioLoad.expectedNumberScenarios
+
+}
+
+String context = job.getString("context");
+
+if (!JOB_CONTEXTS_ONLY_HAVE_FULL_PRICING_ERROR.contains(context) &&
+
+errors.size() < (expectedNumberScenarios == null ? VaRJobGroup ScenarioAmount.fromString(jobGroupRef).getAmount(): expected
+
+++partialErrorCount;
+
+pep.put("scenariosError", errors);
+
+pep.put("partial", true);
+
+} else {
+
+++fullErrorCount;
+
+pep.put("full", true);
+
+if (jobName.contains(ROLE_BASED_PNL_EXPLAIN_CONTEXT)) {
+
+List<Document> explains = RiskStoreCommonUtil.getNestedDocList(doc, keys: "scenarioSets.modelSet.PnL.explains");
+
+List<String> explainErrors = new ArrayList<>();
+
+for (Document explain explains) {
+
+if (RiskStoreCommonUtil.getNestedString (explain, keys: "valuation.pv.error") != null) {
+
+explainErrors.add(RiskStoreCommonUtil.getNestedString(explain, keys: "valuation.pv.error"));
+
+}
+
+I
+
+}
+
+pep.put("scenariosError", explainErrors);
+
+} else {
+
+Document pv RiskStoreCommonUtil.getNestedDoc (doc, IMA_RTPL_EXPLAIN_CONTEXT.equals(context) ?
+
+"scenarioSets.modelSet.PnL.explains.valuation.pv": "scenarioSets.modelSet.valuation.pv");
+
+pep.put("error", RiskStoreCommonUtil.getNestedString(pv, keys: "error"));
+
+
+}
+
+List<Object> values = RiskStoreCommonUtil.getNestedObjectList(doc, keys: "scenarioSets.modelSet.valuation.pv.
+
+if (null != values) {
+
+getEPIValidPvCount (values, epiToValidPvCount, riskSourceID);
+
+}
+
+pricingError Positions.add(pep);
+
+I
+
+}
+
+updatePricingError (rolldate, snap, JobUUID, job, pricing Error Positions);
+
+riskStoreRepository.updatePricingErrorDetails (rolldate, snap, jobName, jobUUID, partialErrorCount, fullErrorCount);
+
+enrich pricing error positions with refdata
+
+logger.info("saving refdata for pricing error positions into RS mongo");
+
+riskStoreRepository.getAndSavePricingErrorDetails (rolldate, snap, jobUUID, cutoff, positionsSet, epiToValidPvCount);
+
+}
+
+return true;
+
+} catch (Exception e) {
+
+logger.error("cannot get Vault metadata.", e);
+
+return false;

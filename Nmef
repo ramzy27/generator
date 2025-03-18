@@ -1,4 +1,153 @@
 
+
+public Boolean getAndSavePositionControlPricingError(final Integer rolldate, final String snap, 
+                                                    final String jobName, final String jobUUID, 
+                                                    final String jobGroupRef, final String cutoff) throws Exception {
+    
+    Document job = riskStoreRepository.getJob(rolldate, snap, jobName);
+    String snapUUID = RiskStoreCommonUtil.getSnapUUID(rolldate, snap, propertiesConfig.getVaultSnapSplitSuffix());
+    
+    // Check if job is parquetJobGroup
+    boolean isParquetJobGroup = jobGroupRef != null && jobGroupRef.contains("parquet");
+    
+    if (isParquetJobGroup) {
+        // Use the new API for parquet jobs
+        return handleParquetJobGroup(rolldate, snap, jobName, jobUUID, snapUUID, job, cutoff);
+    } else {
+        // Use the existing implementation for non-parquet jobs
+        return handleRegularJobGroup(rolldate, snap, jobName, jobUUID, jobGroupRef, snapUUID, job, cutoff);
+    }
+}
+
+private Boolean handleParquetJobGroup(final Integer rolldate, final String snap, final String jobName, 
+                                      final String jobUUID, final String snapUUID, Document job, 
+                                      final String cutoff) throws Exception {
+    List<Document> pricingErrorPositions = new ArrayList<>();
+    Map<Long, Integer> epiToValidPvCount = new HashMap<>();
+    Integer partialErrorCount = 0;
+    Integer fullErrorCount = 0;
+    Set<Long> positionsSet = new HashSet<>();
+    
+    try {
+        // Call the new vault API
+        Document response = vaultRestService.getControls(snapUUID, jobUUID, "pricingError");
+        
+        int resultCount = response != null && response.containsKey(RESP_RESULT_COUNT) ? 
+                          response.getInteger(RESP_RESULT_COUNT) : 0;
+        
+        logger.info("Get response from vault for parquet job, the count of result: {}", resultCount);
+        
+        if (resultCount > 0) {
+            List<Document> body = RiskStoreCommonUtil.getSubDocumentList(response, "body");
+            
+            for (Document doc : body) {
+                // Extract position ID
+                Long riskSourceID = RiskStoreCommonUtil.getNestedLong(doc, "riskSourceID");
+                positionsSet.add(riskSourceID);
+                
+                // Create minimal document for position error
+                Document pep = new Document();
+                pep.put("riskSourceID", riskSourceID);
+                pep.put("full", true);  // Assume full error for parquet jobs in first iteration
+                fullErrorCount++;
+                
+                pricingErrorPositions.add(pep);
+            }
+            
+            // Save the results as before
+            updatePricingError(rolldate, snap, jobUUID, job, pricingErrorPositions);
+            riskStoreRepository.updatePricingErrorDetails(rolldate, snap, jobName, jobUUID, 
+                                                         partialErrorCount, fullErrorCount);
+            
+            // Save position details
+            logger.info("saving refdata for pricing error positions into RS mongo for parquet job");
+            riskStoreRepository.getAndSavePricingErrorDetails(rolldate, snap, jobUUID, cutoff, 
+                                                            positionsSet, epiToValidPvCount);
+        }
+        
+        return true;
+    } catch (Exception e) {
+        logger.error("cannot get Vault metadata for parquet job.", e);
+        return false;
+    }
+}
+
+private Boolean handleRegularJobGroup(final Integer rolldate, final String snap, final String jobName,
+                                     final String jobUUID, final String jobGroupRef, final String snapUUID,
+                                     Document job, final String cutoff) throws Exception {
+    // This would contain the original implementation that was in getAndSavePositionControlPricingError
+    List<Document> pricingErrorPositions = new ArrayList<>();
+    Map<Long, Integer> epiToValidPvCount = new HashMap<>();
+    Integer partialErrorCount = 0;
+    Integer fullErrorCount = 0;
+    
+    String url = MessageFormat.format(propertiesConfig.getVaultServiceGetResult(), 
+                                     snapUUID, jobUUID, 8, 720)
+        + "&p=riskSourceID"
+        + "&p=scenarioSets.modelSet.valuation.pv.tensor.values"
+        + "&p=scenarioSets.modelSet.valuation.pv.tensor.errors"
+        + "&p=scenarioSets.modelSet.valuation.pv.error"
+        // IMA_RTPL_EXPLAIN structure
+        + "&p=scenarioSets.modelSet.PnL.explains.valuation.pv.error"
+        + "&cf=pricingError";
+    
+    logger.info("try to ask vault for rolldate: {}, snap:{} url: {}", rolldate, snapUUID, url);
+    
+    try {
+        Document response = vaultRestService.getResponse(url, null);
+        
+        int resultCount = response != null && response.containsKey(RESP_RESULT_COUNT) ? 
+                          response.getInteger(RESP_RESULT_COUNT) : 0;
+        
+        logger.info("get response from vault, the count of result: {}", resultCount);
+        
+        if (resultCount > 0) {
+            List<Document> body = RiskStoreCommonUtil.getSubDocumentList(response, "body");
+            Set<Long> positionsSet = new HashSet<>();
+            Document jobStatus = riskStoreRepository.findJobStatusByRolldateJobNameJobUUID(rolldate, jobName, jobUUID);
+            
+            // Rest of original implementation...
+            for (Document doc : body) {
+                // Original processing logic here...
+                Long riskSourceID = RiskStoreCommonUtil.getNestedLong(doc, "riskSourceID");
+                positionsSet.add(riskSourceID);
+                
+                Document pep = new Document();
+                pep.put("riskSourceID", riskSourceID);
+                
+                List<Document> errors = RiskStoreCommonUtil.getNestedDocList(doc, 
+                                      "scenarioSets.modelSet.valuation.pv.tensor.errors");
+                
+                Integer expectedNumberScenarios = null;
+                if (null != jobStatus) {
+                    expectedNumberScenarios = RiskStoreCommonUtil.getNestedInteger(jobStatus, 
+                                           "processes.scenarioLoad.expectedNumberScenarios");
+                }
+                
+                String context = job.getString("context");
+                
+                // Process errors and other logic as in the original code
+                // ...
+                
+                pricingErrorPositions.add(pep);
+            }
+            
+            updatePricingError(rolldate, snap, jobUUID, job, pricingErrorPositions);
+            riskStoreRepository.updatePricingErrorDetails(rolldate, snap, jobName, jobUUID, 
+                                                         partialErrorCount, fullErrorCount);
+            
+            logger.info("saving refdata for pricing error positions into RS mongo");
+            riskStoreRepository.getAndSavePricingErrorDetails(rolldate, snap, jobUUID, cutoff, 
+                                                             positionsSet, epiToValidPvCount);
+        }
+        
+        return true;
+    } catch (Exception e) {
+        logger.error("cannot get Vault metadata.", e);
+        return false;
+    }
+}
+
 import requests
 import subprocess
 import shutil

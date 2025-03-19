@@ -1,4 +1,103 @@
+private void savePricingErrorPositions(
+        LocalDate rolldate, 
+        String snap, 
+        Document job, 
+        String jobUUID, 
+        List<Document> pricingErrorPositions) {
+    
+    try {
+        riskStoreRepository.upsertPricingErrorPositionControl(
+                rolldate,
+                snap,
+                getProcessId(job),
+                jobUUID,
+                PRICING_ERROR_POSITIONS,
+                pricingErrorPositions
+        );
+    } catch (BsonMaximumSizeExceededException e) {
+        handleOversizedPayload(rolldate, snap, job, jobUUID, pricingErrorPositions);
+    }
+}
 
+private Integer getProcessId(Document job) {
+    return job.getInteger(ATTR_PROCESS_ID);
+}
+
+private void handleOversizedPayload(
+        LocalDate rolldate, 
+        String snap, 
+        Document job, 
+        String jobUUID, 
+        List<Document> pricingErrorPositions) {
+    
+    log.warn("Payload exceeds MongoDB 16MB limit. Splitting into smaller batches.");
+    
+    List<List<Document>> batches = Lists.partition(pricingErrorPositions, BATCH_SIZE);
+    boolean isFirstBatch = true;
+    
+    for (List<Document> batch : batches) {
+        if (isFirstBatch) {
+            performInitialSave(rolldate, snap, job, jobUUID, batch);
+            isFirstBatch = false;
+        } else {
+            appendToPreviousSave(rolldate, snap, job, jobUUID, batch);
+        }
+    }
+}
+
+private void performInitialSave(
+        LocalDate rolldate, 
+        String snap, 
+        Document job, 
+        String jobUUID, 
+        List<Document> batch) {
+    
+    riskStoreRepository.upsertPricingErrorPositionControl(
+            rolldate,
+            snap,
+            getProcessId(job),
+            jobUUID,
+            PRICING_ERROR_POSITIONS,
+            batch
+    );
+}
+
+private void appendToPreviousSave(
+        LocalDate rolldate, 
+        String snap, 
+        Document job, 
+        String jobUUID, 
+        List<Document> batch) {
+    
+    riskStoreRepository.pushPricingErrorPositionControl(
+            rolldate,
+            snap,
+            getProcessId(job),
+            jobUUID,
+            PRICING_ERROR_POSITIONS,
+            batch
+    );
+}
+
+private void logSaveFailure(
+        LocalDate rolldate, 
+        String snap, 
+        Document job, 
+        String jobUUID, 
+        Exception e) {
+    
+    log.error(
+            "Failed to save pricing error positions. rolldate: {}, snap: {}, processId: {}, jobUUID: {}",
+            rolldate,
+            snap,
+            getProcessId(job),
+            jobUUID,
+            e
+    );
+}
+
+// Constants (should be defined at class level)
+private static final int BATCH_SIZE = 100;
 
 
 package com.yourpackage.service;

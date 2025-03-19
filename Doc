@@ -1,3 +1,183 @@
+
+
+
+package com.yourpackage.service;
+
+import com.mongodb.client.model.Filters;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.bson.Document;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Service to handle vault control operations for different job types
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class VaultControlService {
+    
+    private final VaultRestService vaultRestService;
+    private final RiskStoreRepository riskStoreRepository;
+    private final PropertiesConfig propertiesConfig;
+    private static final String RESP_RESULT_COUNT = "resultCount";
+    
+    /**
+     * Extract position IDs from vault control response
+     * 
+     * @param response The response document from vault
+     * @return Set of position IDs
+     */
+    public Set<Long> extractPositionIds(Document response) {
+        Set<Long> positionIds = new HashSet<>();
+        
+        if (response == null || !response.containsKey("body")) {
+            return positionIds;
+        }
+        
+        List<Document> body = (List<Document>) response.get("body");
+        
+        for (Document controlEntry : body) {
+            if (controlEntry.containsKey("riskSourceIDs")) {
+                List<Long> riskSourceIDs = (List<Long>) controlEntry.get("riskSourceIDs");
+                positionIds.addAll(riskSourceIDs);
+            }
+        }
+        
+        return positionIds;
+    }
+    
+    /**
+     * Process control data for a parquet job
+     * 
+     * @param rolldate The roll date
+     * @param snap The snap
+     * @param jobName The job name
+     * @param jobUUID The job UUID
+     * @param controlType The control type (e.g., "pricingError", "orphanPosition")
+     * @param cutoff The cutoff
+     * @return Boolean indicating success
+     */
+    public Boolean processControlForParquetJob(
+            final Integer rolldate, 
+            final String snap, 
+            final String jobName, 
+            final String jobUUID,
+            final String controlType,
+            final String cutoff) {
+        
+        try {
+            Document job = riskStoreRepository.getJob(rolldate, snap, jobName);
+            String snapUUID = RiskStoreCommonUtil.getSnapUUID(rolldate, snap, propertiesConfig.getVaultSnapSplitSuffix());
+            
+            // Call the new vault API
+            Document response = vaultRestService.getControls(snapUUID, jobUUID, controlType);
+            
+            // Extract position IDs from the response
+            Set<Long> positionIds = extractPositionIds(response);
+            
+            if (positionIds.isEmpty()) {
+                log.info("No positions found for controlType: {} in job: {}", controlType, jobUUID);
+                return true;
+            }
+            
+            log.info("Found {} positions for controlType: {} in job: {}", positionIds.size(), controlType, jobUUID);
+            
+            // Process based on control type
+            if ("pricingError".equals(controlType)) {
+                processPricingErrorPositions(rolldate, snap, jobName, jobUUID, job, cutoff, positionIds);
+            } else if ("orphanPosition".equals(controlType)) {
+                processOrphanPositions(rolldate, snap, jobName, jobUUID, job, cutoff, positionIds);
+            } else {
+                log.warn("Unsupported control type: {}", controlType);
+            }
+            
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to process control for parquet job. rolldate: {}, snap: {}, jobName: {}, controlType: {}",
+                    rolldate, snap, jobName, controlType, e);
+            return false;
+        }
+    }
+    
+    /**
+     * Process pricing error positions
+     */
+    private void processPricingErrorPositions(
+            final Integer rolldate,
+            final String snap,
+            final String jobName,
+            final String jobUUID,
+            Document job,
+            final String cutoff,
+            Set<Long> positionIds) throws Exception {
+        
+        List<Document> pricingErrorPositions = new ArrayList<>();
+        Map<Long, Integer> epiToValidPvCount = new HashMap<>();
+        
+        // In second iteration, we could add more detailed processing here
+        
+        // For now, create minimal documents for each position
+        for (Long positionId : positionIds) {
+            Document pep = new Document();
+            pep.put("riskSourceID", positionId);
+            pep.put("full", true);  // Assume full error for now
+            pricingErrorPositions.add(pep);
+        }
+        
+        // Save the results
+        updatePricingError(rolldate, snap, jobUUID, job, pricingErrorPositions);
+        riskStoreRepository.updatePricingErrorDetails(rolldate, snap, jobName, jobUUID, 
+                                                    0, positionIds.size());
+        
+        // Save position details
+        log.info("Saving refdata for pricing error positions into RS mongo for parquet job");
+        riskStoreRepository.getAndSavePricingErrorDetails(rolldate, snap, jobUUID, cutoff, 
+                                                        positionIds, epiToValidPvCount);
+    }
+    
+    /**
+     * Process orphan positions
+     */
+    private void processOrphanPositions(
+            final Integer rolldate,
+            final String snap,
+            final String jobName,
+            final String jobUUID,
+            Document job,
+            final String cutoff,
+            Set<Long> positionIds) throws Exception {
+        
+        // Implementation for orphan positions will go here in future iterations
+        log.info("Processing {} orphan positions for job: {}", positionIds.size(), jobUUID);
+        
+        // Example placeholder implementation
+        Document orphanDetails = new Document()
+                .append("jobUUID", jobUUID)
+                .append("positionCount", positionIds.size())
+                .append("positions", new ArrayList<>(positionIds));
+                
+        riskStoreRepository.saveOrphanPositions(rolldate, snap, jobName, orphanDetails);
+    }
+    
+    /**
+     * Update pricing error in database
+     */
+    private void updatePricingError(
+            Integer rolldate, 
+            String snap, 
+            String jobUUID, 
+            Document job, 
+            List<Document> pricingErrorPositions) {
+        
+        // Assuming this method already exists
+        riskStoreRepository.updatePricingError(rolldate, snap, jobUUID, job, pricingErrorPositions);
+    }
+}
 package com.example.service;
 
 import org.bson.Document;

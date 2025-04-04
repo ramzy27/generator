@@ -1,4 +1,132 @@
+pipeline {
+    agent any
 
+    tools {
+        maven 'Maven 3.9.5'
+        jdk 'JDK 17'
+    }
+
+    environment {
+        NEXUS_CREDS = credentials('nexus-credentials')
+        BITBUCKET_CREDS = credentials('bitbucket-credentials')
+        PARENT_VERSION = ''
+        CHILD_PROJECTS = 'riskstore-api,riskstore-core,riskstore-service'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Extract Version') {
+            steps {
+                script {
+                    // Extract version from pom.xml
+                    PARENT_VERSION = sh(script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout", returnStdout: true).trim()
+                    echo "Parent POM version: ${PARENT_VERSION}"
+                }
+            }
+        }
+
+        stage('Build and Test') {
+            steps {
+                sh 'mvn clean verify'
+            }
+        }
+
+        stage('Deploy to Nexus') {
+            steps {
+                sh 'mvn deploy -DskipTests'
+                echo "Parent POM ${PARENT_VERSION} deployed to Nexus"
+            }
+        }
+
+        stage('Create PRs in Child Projects') {
+            when {
+                expression {
+                    return !PARENT_VERSION.contains('SNAPSHOT')
+                }
+            }
+            steps {
+                script {
+                    def childProjects = CHILD_PROJECTS.split(',')
+                    
+                    for (project in childProjects) {
+                        def branchName = "update-parent-pom-to-${PARENT_VERSION}"
+                        
+                        // Clone child project
+                        sh """
+                            git clone https://bitbucket.your-company.com/scm/riskstore/${project}.git
+                            cd ${project}
+                            git checkout -b ${branchName}
+                        """
+                        
+                        // Update parent version in child project
+                        dir(project) {
+                            sh """
+                                # Update parent version
+                                mvn versions:update-parent -DparentVersion=${PARENT_VERSION} -DgenerateBackupPoms=false
+                                
+                                # Commit changes
+                                git config user.email "jenkins@your-company.com"
+                                git config user.name "Jenkins CI"
+                                git add pom.xml
+                                git commit -m "Update parent POM to version ${PARENT_VERSION}"
+                                git push origin ${branchName}
+                            """
+                            
+                            // Create PR using curl and Bitbucket REST API
+                            sh """
+                                curl -u ${BITBUCKET_CREDS_USR}:${BITBUCKET_CREDS_PSW} \\
+                                -X POST \\
+                                -H "Content-Type: application/json" \\
+                                https://bitbucket.your-company.com/rest/api/1.0/projects/RISKSTORE/repos/${project}/pull-requests \\
+                                -d '{
+                                    "title": "Update parent POM to version ${PARENT_VERSION}",
+                                    "description": "Automated PR to update the parent POM version to ${PARENT_VERSION}",
+                                    "fromRef": {
+                                        "id": "refs/heads/${branchName}",
+                                        "repository": {
+                                            "slug": "${project}",
+                                            "project": {
+                                                "key": "RISKSTORE"
+                                            }
+                                        }
+                                    },
+                                    "toRef": {
+                                        "id": "refs/heads/develop",
+                                        "repository": {
+                                            "slug": "${project}",
+                                            "project": {
+                                                "key": "RISKSTORE"
+                                            }
+                                        }
+                                    }
+                                }'
+                            """
+                            
+                            echo "PR created for ${project} to update parent POM to version ${PARENT_VERSION}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo "Parent POM processed successfully"
+        }
+        failure {
+            echo "Failed to process parent POM"
+        }
+    }
+}
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

@@ -1,4 +1,161 @@
-
+pipeline {
+    agent { 
+        label 'build && linux && riskstore' 
+    }
+    
+    tools {
+        maven 'maven3'
+        jdk 'zulu-jdk21-linux'
+    }
+    
+    environment {
+        CHILD_PROJECTS = 'riskstore-api,riskstore-core,riskstore-service'
+    }
+    
+    parameters {
+        string(name: 'FEATURE_NAME', defaultValue: '', description: 'Feature name (e.g., EQRSP-4444)')
+        string(name: 'NEW_VERSION', defaultValue: '', description: 'New version for parent POM (e.g., 0.0.3)')
+    }
+    
+    stages {
+        stage('Initialize') {
+            steps {
+                script {
+                    // Validate input parameters
+                    if (params.FEATURE_NAME.trim() == '') {
+                        error "Feature name parameter is required"
+                    }
+                    if (params.NEW_VERSION.trim() == '') {
+                        error "Version parameter is required"
+                    }
+                    
+                    // Set feature branch name
+                    env.FEATURE_BRANCH = "feature/${params.FEATURE_NAME}"
+                    
+                    echo "Feature branch: ${env.FEATURE_BRANCH}"
+                    echo "Target version: ${params.NEW_VERSION}"
+                }
+            }
+        }
+        
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Update Version') {
+            steps {
+                script {
+                    // Get current version for logging
+                    def currentVersion = sh(
+                        script: "mvn help:evaluate -Dexpression=revision -q -DforceStdout",
+                        returnStdout: true
+                    ).trim()
+                    
+                    echo "Current version: ${currentVersion}"
+                    echo "Updating to: ${params.NEW_VERSION}"
+                    
+                    // Update the version property
+                    sh "mvn versions:set-property -Dproperty=revision -DnewVersion=${params.NEW_VERSION} -DgenerateBackupPoms=false"
+                    
+                    // Commit and push changes
+                    sh """
+                        git add pom.xml
+                        git commit -m "Update parent POM version to ${params.NEW_VERSION}"
+                        git push origin HEAD
+                    """
+                }
+            }
+        }
+        
+        stage('Build and Test') {
+            steps {
+                sh 'mvn clean verify'
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                    jacoco(
+                        execPattern: '**/target/jacoco.exec',
+                        classPattern: '**/target/classes',
+                        sourcePattern: '**/src/main/java'
+                    )
+                }
+            }
+        }
+        
+        stage('Deploy to Nexus') {
+            steps {
+                sh 'mvn deploy -DskipTests'
+                echo "Parent POM ${params.NEW_VERSION} deployed to Nexus"
+            }
+        }
+        
+        stage('Update Child Projects') {
+            when {
+                expression { return !params.NEW_VERSION.contains('SNAPSHOT') }
+            }
+            steps {
+                script {
+                    def childProjects = env.CHILD_PROJECTS.split(',')
+                    
+                    for (project in childProjects) {
+                        def projectName = project.trim()
+                        echo "Updating child project: ${projectName}"
+                        
+                        // Clone repository and create feature branch
+                        withCredentials([usernamePassword(credentialsId: 'bitbucket-credentials', 
+                                                          usernameVariable: 'GIT_USER', 
+                                                          passwordVariable: 'GIT_PASSWORD')]) {
+                            
+                            def gitUrl = "https://${GIT_USER}:${GIT_PASSWORD}@gbmt-bitbucket.prd.fx.gbm.cloud.uk.hsbc/projects/RSKSTR/repos/${projectName}.git"
+                            
+                            // Clone, checkout branch
+                            sh """
+                                git clone ${gitUrl} ./${projectName}
+                                cd ${projectName}
+                                git checkout -b ${env.FEATURE_BRANCH}
+                            """
+                            
+                            // Update parent version and push changes
+                            dir(projectName) {
+                                sh """
+                                    mvn versions:update-parent -DparentVersion=${params.NEW_VERSION} -DgenerateBackupPoms=false
+                                    git add pom.xml
+                                    git commit -m "Update parent POM to version ${params.NEW_VERSION}"
+                                    git push origin ${env.FEATURE_BRANCH}
+                                """
+                                
+                                // Create pull request using Bitbucket REST API
+                                def prTitle = "Update parent POM to version ${params.NEW_VERSION}"
+                                def prDescription = "Automated PR to update parent POM reference"
+                                
+                                sh """
+                                    curl -u ${GIT_USER}:${GIT_PASSWORD} -X POST -H "Content-Type: application/json" \
+                                    -d '{"title":"${prTitle}","description":"${prDescription}","fromRef":{"id":"${env.FEATURE_BRANCH}"},"toRef":{"id":"develop"}}' \
+                                    https://gbmt-bitbucket.prd.fx.gbm.cloud.uk.hsbc/rest/api/1.0/projects/RSKSTR/repos/${projectName}/pull-requests
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo "Pipeline completed successfully"
+        }
+        failure {
+            echo "Pipeline failed"
+        }
+    }
+}
 
 pipeline {
     agent any

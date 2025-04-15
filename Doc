@@ -1,3 +1,131 @@
+
+pipeline {
+    agent {
+        label 'build && linux && riskstore'
+    }
+
+    tools {
+        maven 'maven3'
+        jdk 'zulu-jdk21-linux'
+    }
+
+    environment {
+        CHILD_PROJECTS = 'riskstore-api,riskstore-core,riskstore-service'
+    }
+
+    stages {
+        stage('Init') {
+            steps {
+                script {
+                    env.BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+                    echo "Current Git branch: ${env.BRANCH_NAME}"
+
+                    env.IS_RELEASE_BRANCH = env.BRANCH_NAME.startsWith("release/") ? "true" : "false"
+                    env.IS_DEVELOP = (env.BRANCH_NAME == "develop") ? "true" : "false"
+
+                    if (env.IS_RELEASE_BRANCH == "true") {
+                        env.NEW_VERSION = env.BRANCH_NAME.replace("release/", "")
+                        env.IS_SNAPSHOT = "false"
+                        echo "Release branch detected → NEW_VERSION = ${env.NEW_VERSION}"
+                    } else {
+                        // Get current version (usually snapshot)
+                        env.NEW_VERSION = sh(
+                            script: "mvn help:evaluate -Dexpression=revision -q -DforceStdout",
+                            returnStdout: true
+                        ).trim()
+                        env.IS_SNAPSHOT = env.NEW_VERSION.contains("SNAPSHOT") ? "true" : "false"
+                        echo "Detected version: ${env.NEW_VERSION}"
+                    }
+                }
+            }
+        }
+
+        stage('Set Release Version') {
+            when {
+                expression { return env.IS_RELEASE_BRANCH == "true" }
+            }
+            steps {
+                script {
+                    sh "mvn versions:set-property -Dproperty=revision -DnewVersion=${env.NEW_VERSION} -DgenerateBackupPoms=false"
+                    sh """
+                        git add pom.xml
+                        git commit -m "Release version ${env.NEW_VERSION}"
+                        git push origin ${env.BRANCH_NAME}
+                        git tag v${env.NEW_VERSION}
+                        git push origin v${env.NEW_VERSION}
+                    """
+                }
+            }
+        }
+
+        stage('Build and Test') {
+            steps {
+                sh 'mvn clean verify'
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                    jacoco(
+                        execPattern: '**/target/jacoco.exec',
+                        classPattern: '**/target/classes',
+                        sourcePattern: '**/src/main/java'
+                    )
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                anyOf {
+                    expression { return env.IS_RELEASE_BRANCH == "true" }
+                    expression { return env.IS_DEVELOP == "true" }
+                }
+            }
+            steps {
+                script {
+                    def repo = env.IS_SNAPSHOT == "true" ? "snapshot" : "release"
+                    echo "Deploying to Nexus (${repo} repository)"
+                    sh "mvn deploy -DskipTests"
+                }
+            }
+        }
+
+        stage('Prepare Next SNAPSHOT (on develop)') {
+            when {
+                expression { return env.IS_RELEASE_BRANCH == "true" }
+            }
+            steps {
+                script {
+                    def (major, minor, patch) = env.NEW_VERSION.tokenize('.').collect { it.toInteger() }
+                    def nextVersion = "${major}.${minor}.${patch + 1}-SNAPSHOT"
+                    echo "Preparing develop branch for version ${nextVersion}"
+
+                    sh """
+                        git checkout develop
+                        git pull origin develop
+                        mvn versions:set-property -Dproperty=revision -DnewVersion=${nextVersion} -DgenerateBackupPoms=false
+                        git commit -am "Prepare next development iteration: ${nextVersion}"
+                        git push origin develop
+                    """
+                }
+            }
+        }
+
+        stage('Update Child Projects') {
+            when {
+                expression { return env.IS_RELEASE_BRANCH == "true" }
+            }
+            steps {
+                // tu gardes ici ton code existant pour les PRs sur les projets enfants
+                script {
+                    // ...
+                }
+            }
+        }
+    }
+}
+
+
 pipeline {
     agent { 
         label 'build && linux && riskstore' 

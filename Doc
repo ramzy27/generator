@@ -1,4 +1,160 @@
+public void parseRiskResultsToEnrichPriceError(JobNotifDoc jobNotifDoc, Document job, List<Document> riskResultDocuments) {
+    try {
+        log.info("Parsing Risk Results to Enrich Price Error");
 
+        List<Document> pricingErrorPositions = new ArrayList<>();
+        Map<Long, Integer> epiToValidPvCount = new HashMap<>();
+        int partialErrorCount = 0;
+        int fullErrorCount = 0;
+        Set<Long> positionsSet = new HashSet<>();
+
+        Document jobStatus = riskStoreRepository.findJobStatusByRolldateJobNameJobUUID(
+                jobNotifDoc.getRolldate(), 
+                jobNotifDoc.getJobLabel(), 
+                jobNotifDoc.getJobUUID());
+
+        for (Document doc : riskResultDocuments) {
+            Long riskSourceID = RiskStoreCommonUtil.getNestedLong(doc, "riskSourceID");
+            positionsSet.add(riskSourceID);
+
+            Document pricingErrorPosition = new Document();
+            pricingErrorPosition.put("epi", riskSourceID);
+
+            // Handle SES_NMRF job group specific logic
+            if ("SES_NMRF".equalsIgnoreCase(jobNotifDoc.getJobGroupRef())) {
+                List<String> ids = RiskStoreCommonUtil.getNestedDocList(doc, "scenarioSets.modelSet.valuation.pv.tensor20.coordinates.ids");
+                if (ids != null && ids.size() > 8) {
+                    String[] parts = ids.get(8).split("/");
+                    if (parts.length == 2) {
+                        String starId = parts[0];
+                        String bucketId = parts[1];
+                        pricingErrorPosition.put("starId", starId);
+                        pricingErrorPosition.put("bucketId", bucketId);
+                    }
+                }
+            }
+
+            // Get errors from different sources
+            List<Document> errors = RiskStoreCommonUtil.getNestedDocList(doc, "scenarioSets.modelSet.valuation.pv.tensor20.coordinates.errors");
+            List<Document> tensorList = RiskStoreCommonUtil.getNestedDocList(doc, "scenarioSets.modelSet.valuation.pv.tensor");
+            
+            if (errors == null || errors.isEmpty()) {
+                errors = new ArrayList<>();
+                if (tensorList != null) {
+                    for (Document tensor : tensorList) {
+                        List<Document> tensorErrors = (List<Document>) tensor.get("errors");
+                        if (tensorErrors != null) {
+                            errors.addAll(tensorErrors);
+                        }
+                    }
+                }
+            }
+
+            boolean isParquetJobGroup = propertiesConfig.getParquetJobGroups().contains(jobNotifDoc.getJobGroupRef());
+
+            if (errors == null) {
+                continue;
+            }
+
+            // Determine expected number of scenarios
+            Integer expectedNumberScenarios = RiskStoreCommonUtil.getNestedInteger(jobStatus, "processes.scenarioload.expectedNumberScenarios");
+            
+            if (isParquetJobGroup) {
+                expectedNumberScenarios = 250;
+                if ("SES_NMRF_MAX_LOSS".equalsIgnoreCase(jobStatus.getString("job"))) {
+                    expectedNumberScenarios = 3;
+                }
+            }
+
+            if (expectedNumberScenarios == null) {
+                expectedNumberScenarios = VaRJobGroupScenarioAmount.fromString(jobNotifDoc.getJobGroupRef()).getAmount();
+            }
+
+            String context = job.getString("context");
+
+            // Determine if error is partial or full
+            if (!JOB_CONTEXTS_ONLY_HAVE_FULL_PRICING_ERROR.contains(context) && 
+                CollectionUtils.size(errors) < expectedNumberScenarios) {
+                
+                partialErrorCount++;
+                pricingErrorPosition.put("scenariosError", errors);
+                pricingErrorPosition.put("partial", true);
+                
+            } else {
+                fullErrorCount++;
+                pricingErrorPosition.put("full", true);
+
+                // Handle different job group contexts for full errors
+                if (jobNotifDoc.getJobGroupRef().contains(ROLE_BASED_PNL_EXPLAIN_CONTEXT)) {
+                    List<Document> explains = RiskStoreCommonUtil.getNestedDocList(doc, "scenarioSets.modelSet.PnL.explains");
+                    List<String> explainErrors = new ArrayList<>();
+                    
+                    if (explains != null) {
+                        for (Document explain : explains) {
+                            String error = RiskStoreCommonUtil.getNestedString(explain, "valuation.pv.error");
+                            if (error != null) {
+                                explainErrors.add(error);
+                            }
+                        }
+                    }
+                    pricingErrorPosition.put("scenariosError", explainErrors);
+                    
+                } else if (isParquetJobGroup) {
+                    List<Map> errorList = RiskStoreCommonUtil.getNestedDocList(doc, "scenarioSets.modelSet.valuation.pv.tensor20.coordinates.errors");
+                    if (errorList != null && errorList.size() > 8) {
+                        pricingErrorPosition.put("error", errorList.get(8).get("error"));
+                    }
+                    
+                } else {
+                    String pvPath = IMA_RTPL_EXPLAIN_CONTEXT.equals(context) ? 
+                            "scenarioSets.modelSet.PnL.explains.valuation.pv" : 
+                            "scenarioSets.modelSet.valuation.pv";
+                    Document pv = RiskStoreCommonUtil.getNestedDoc(doc, pvPath);
+                    pricingErrorPosition.put("error", RiskStoreCommonUtil.getNestedString(pv, "error"));
+                }
+            }
+
+            // Process values for non-parquet job groups
+            if (!isParquetJobGroup) {
+                List<Object> values = RiskStoreCommonUtil.getNestedObjectList(doc, "scenarioSets.modelSet.valuation.pv.tensor.values");
+                if (values != null) {
+                    getEPIValidPvCount(values, epiToValidPvCount, riskSourceID);
+                }
+            }
+
+            pricingErrorPositions.add(pricingErrorPosition);
+        }
+
+        // Update pricing error information
+        updatePricingError(
+                jobNotifDoc.getRolldate(), 
+                jobNotifDoc.getSnap(), 
+                jobNotifDoc.getJobUUID(), 
+                job, 
+                pricingErrorPositions);
+
+        riskStoreRepository.updatePricingErrorDetails(
+                jobNotifDoc.getRolldate(), 
+                jobNotifDoc.getSnap(), 
+                jobNotifDoc.getJobLabel(), 
+                jobNotifDoc.getJobUUID(),
+                partialErrorCount, 
+                fullErrorCount);
+
+        log.info("Saving refdata for pricing error positions into RS mongo");
+        
+        riskStoreRepository.getAndSavePricingErrorDetails(
+                jobNotifDoc.getRolldate(), 
+                jobNotifDoc.getSnap(),
+                jobNotifDoc.getJobUUID(), 
+                jobNotifDoc.getCutoff(), 
+                positionsSet, 
+                epiToValidPvCount);
+
+    } catch (Exception e) {
+        log.error("Failed to parse risk result to enrich price error.", e);
+    }
+}
 pipeline {
     agent {
         label 'build && linux && riskstore'

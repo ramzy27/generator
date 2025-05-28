@@ -1,3 +1,22 @@
+<plugin>
+  <groupId>org.glassfish.jaxb</groupId>
+  <artifactId>jaxb-maven-plugin</artifactId>
+  <version>3.0.2</version> <!-- Use 3.x for jakarta.* -->
+  <executions>
+    <execution>
+      <id>xjc</id>
+      <goals>
+        <goal>xjc</goal>
+      </goals>
+      <configuration>
+        <sources>
+          <source>${project.basedir}/src/main/resources/xsd</source>
+        </sources>
+        <packageName>com.example.generated</packageName>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
 public void parseRiskResultsToEnrichPriceError(JobNotifDoc jobNotifDoc, Document job, List<Document> riskResultDocuments) {
     try {
         log.info("Parsing Risk Results to Enrich Price Error");

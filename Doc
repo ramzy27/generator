@@ -1,4 +1,20 @@
 @Configuration
+public class WebConfig implements WebMvcConfigurer {
+    
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        // Handle SPA routes - forward to index.html for non-API, non-error paths
+        registry.addViewController("/{spring:^(?!api|actuator|error|static)\\w+}")
+                .setViewName("forward:/index.html");
+        registry.addViewController("/**/{spring:^(?!api|actuator|error|static)\\w+}")
+                .setViewName("forward:/index.html");
+        registry.addViewController("/{spring:^(?!api|actuator|error|static)\\w+}/**{spring:?!(\\.js|\\.css|\\.png|\\.jpg|\\.jpeg|\\.gif|\\.ico|\\.svg|\\.woff|\\.woff2|\\.ttf)$}")
+                .setViewName("forward:/index.html");
+    }
+}
+
+
+@Configuration
 public class TomcatConfig {
 
     @Bean

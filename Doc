@@ -1,3 +1,26 @@
+@Controller
+public class SpaController {
+    
+    @RequestMapping(value = "/**", method = RequestMethod.GET)
+    public String forward(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        
+        // Don't forward these paths - let Spring handle them normally
+        if (path.startsWith("/api/") || 
+            path.startsWith("/actuator/") || 
+            path.startsWith("/error") ||
+            path.startsWith("/swagger-ui") ||
+            path.startsWith("/v3/api-docs") ||
+            path.startsWith("/swagger-resources") ||
+            path.startsWith("/webjars/") ||
+            path.contains(".")) { // Static files (js, css, images, etc.)
+            return null; // Let Spring handle normally
+        }
+        
+        return "forward:/index.html";
+    }
+}
+
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
     

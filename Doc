@@ -1,4 +1,30 @@
 @Configuration
+public class TomcatConfig {
+
+    @Bean
+    public TomcatServletWebServerFactory servletContainer() {
+        TomcatServletWebServerFactory tomcat = new TomcatServletWebServerFactory();
+        
+        tomcat.addEngineValves(new SecurityHeaderValve());
+        
+        return tomcat;
+    }
+    
+    public static class SecurityHeaderValve extends ValveBase {
+        
+        @Override
+        public void invoke(Request request, Response response) throws IOException, ServletException {
+            // Add headers BEFORE processing
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setHeader("X-Frame-Options", "SAMEORIGIN");
+            
+            // Continue with the request
+            getNext().invoke(request, response);
+        }
+    }
+}
+
+@Configuration
 public class FilterConfig {
 
     @Bean

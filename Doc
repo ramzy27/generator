@@ -1,4 +1,27 @@
+@Configuration
+public class FilterConfig {
 
+    @Bean
+    public FilterRegistrationBean<SecurityHeaderFilter> securityHeaderFilter() {
+        FilterRegistrationBean<SecurityHeaderFilter> registrationBean = new FilterRegistrationBean<>();
+        registrationBean.setFilter(new SecurityHeaderFilter());
+        registrationBean.addUrlPatterns("/*");
+        registrationBean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registrationBean;
+    }
+    
+    public static class SecurityHeaderFilter implements Filter {
+        @Override
+        public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+                throws IOException, ServletException {
+            
+            HttpServletResponse httpResponse = (HttpServletResponse) response;
+            httpResponse.setHeader("X-Content-Type-Options", "nosniff");
+            
+            chain.doFilter(request, response);
+        }
+    }
+}
 @Configuration
 public class TomcatConfig {
 

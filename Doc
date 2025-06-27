@@ -1,3 +1,56 @@
+<table>
+  <caption><strong>Firestore-Enterprise monthly cost estimate</strong></caption>
+  <thead>
+    <tr>
+      <th>Scenario</th>
+      <th>Billable storage<br>(GiB-month)</th>
+      <th>Storage<br>@ $0.24 / GiB-mo</th>
+      <th>Read units<br>/ month</th>
+      <th>Reads<br>@ $0.05 / M</th>
+      <th>Write units<br>/ month</th>
+      <th>Writes<br>@ $0.26 / M</th>
+      <th><u>Subtotal</u></th>
+      <th>Docs / links</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><em>A&nbsp;– keep every collection<br>(incl. RiskResults)</em></td>
+      <td align="right">13 245</td>
+      <td align="right">$ 3 179</td>
+      <td align="right">2.53 B</td>
+      <td align="right">$ 126</td>
+      <td align="right">1.08 B</td>
+      <td align="right">$ 282</td>
+      <td align="right"><strong>$ 3 587</strong></td>
+      <td><a href="https://cloud.google.com/products/firestore/mongodb-compatibility#pricing">price card</a></td>
+    </tr>
+    <tr>
+      <td><em>B – drop RiskResults<br>(≈ 6.7 TB logical)</em></td>
+      <td align="right">5 353</td>
+      <td align="right">$ 1 285</td>
+      <td align="right">1.27 B</td>
+      <td align="right">$ 63</td>
+      <td align="right">0.54 B</td>
+      <td align="right">$ 141</td>
+      <td align="right"><strong>$ 1 489</strong></td>
+      <td><a href="https://cloud.google.com/products/firestore/mongodb-compatibility#pricing">price card</a></td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="9">
+        <small>
+          * Totals exclude optional Point-in-Time Recovery (adds ≈ 100 % to the storage line)  
+          * Network egress inside the same region is free; inter-region starts at $0.01 / GB  
+          * First 1 GiB storage + 50 k reads + 40 k writes per day are free
+        </small>
+      </td>
+    </tr>
+  </tfoot>
+</table>
+
+
 package com.yourcompany.exception;
 
 import org.slf4j.Logger;

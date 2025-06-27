@@ -1,3 +1,27 @@
+#!/usr/bin/env bash
+# ---------- EDIT THESE -------------
+export DB_UID="f116f93a-519c-208a-9a72-3ef6c9a1f081"   # from console
+export LOCATION="nam5"                                 # your region
+export DB_ID="riskstore-poc"
+export DB_USER="poc_user"
+export DB_PASS='Th1sIs$tr0ng!'                         # one-time pw
+
+# If you sit behind a corporate proxy:
+# export HTTPS_PROXY="http://proxy.mycorp.local:8080"
+# export NO_PROXY="169.254.169.254,metadata.google.internal"
+
+URI="mongodb://${DB_USER}:${DB_PASS}@${DB_UID}.${LOCATION}.firestore.goog:443/${DB_ID}?loadBalanced=true&tls=true&retryWrites=false&authMechanism=SCRAM-SHA-256"
+
+echo "Testing interactive shell..."
+mongosh "$URI" --eval 'db.runCommand({ping:1})'
+
+echo "Importing a JSON file..."
+mongoimport --uri "$URI" \
+            --collection JobStats \
+            --file jobstats.json \
+            --numInsertionWorkers 32 \
+            --maintainInsertionOrder=false
+
 <table>
   <caption><strong>Firestore-Enterprise monthly cost estimate</strong></caption>
   <thead>

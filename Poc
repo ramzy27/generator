@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MongoDB 4.x to Firestore with MongoDB Compatibility Migration Plan</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; margin: 20px; }
+        .info-panel { background: #deebff; border-left: 4px solid #0065ff; padding: 12px; margin: 16px 0; }
+        .warning-panel { background: #fffae6; border-left: 4px solid #ff8b00; padding: 12px; margin: 16px 0; }
+        .success-panel { background: #e3fcef; border-left: 4px solid #00875a; padding: 12px; margin: 16px 0; }
+        .code-block { background: #f4f5f7; border: 1px solid #dfe1e6; border-radius: 3px; padding: 12px; font-family: 'SFMono-Medium', 'SF Mono', Consolas, monospace; margin: 8px 0; }
+        .task-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        .task-table th, .task-table td { border: 1px solid #dfe1e6; padding: 8px 12px; text-align: left; }
+        .task-table th { background: #f4f5f7; font-weight: 600; }
+        .priority-high { color: #de350b; font-weight: bold; }
+        .priority-medium { color: #ff8b00; font-weight: bold; }
+        .priority-low { color: #00875a; font-weight: bold; }
+        .step-header { background: #f4f5f7; padding: 10px; border-radius: 3px; margin: 16px 0 8px 0; font-weight: 600; }
+        ul.checklist { list-style-type: none; padding-left: 0; }
+        ul.checklist li:before { content: "☐ "; margin-right: 8px; }
+        .section-divider { border-top: 2px solid #dfe1e6; margin: 32px 0 24px 0; }
+    </style>
+</head>
+<body>
+
+<h1>🚀 MongoDB 4.x to Firestore with MongoDB Compatibility Migration Plan</h1>
+
+<div class="info-panel">
+    <strong>Project Overview:</strong> Migrate from MongoDB 4.x to Google Cloud Firestore with MongoDB compatibility to meet governance requirements while maintaining existing application code with minimal changes.
+</div>
+
+<h2>📋 Table of Contents</h2>
+<ul>
+    <li><a href="#background">Background & Business Drivers</a></li>
+    <li><a href="#solution-overview">Solution Overview</a></li>
+    <li><a href="#technical-approach">Technical Approach</a></li>
+    <li><a href="#poc-scope">POC Scope & Objectives</a></li>
+    <li><a href="#implementation-phases">Implementation Phases</a></li>
+    <li><a href="#technical-requirements">Technical Requirements</a></li>
+    <li><a href="#risks-mitigation">Risks & Mitigation</a></li>
+    <li><a href="#jira-breakdown">Jira Epic & Story Breakdown</a></li>
+</ul>
+
+<div class="section-divider"></div>
+
+<h2 id="background">🎯 Background & Business Drivers</h2>
+
+<h3>Current State</h3>
+<ul>
+    <li><strong>Database:</strong> MongoDB 4.x (End of Life approaching)</li>
+    <li><strong>Infrastructure:</strong> Google Cloud Platform</li>
+    <li><strong>Application:</strong> Spring Boot with MongoDB drivers</li>
+    <li><strong>Network:</strong> Corporate VPN with proxy configuration</li>
+</ul>
+
+<h3>Business Drivers</h3>
+<ul>
+    <li><strong>Governance Compliance:</strong> Mandatory upgrade from MongoDB 4.x</li>
+    <li><strong>Cloud-Native Approach:</strong> Leverage GCP managed services</li>
+    <li><strong>Minimal Code Changes:</strong> Maintain existing application logic</li>
+    <li><strong>Operational Excellence:</strong> Reduce maintenance overhead</li>
+</ul>
+
+<div class="success-panel">
+    <strong>Strategic Benefit:</strong> Firestore with MongoDB compatibility provides a fully managed, scalable solution that maintains MongoDB API compatibility while offering Google Cloud's reliability and security.
+</div>
+
+<div class="section-divider"></div>
+
+<h2 id="solution-overview">🏗️ Solution Overview</h2>
+
+<h3>Target Architecture</h3>
+<ul>
+    <li><strong>Database:</strong> Google Cloud Firestore with MongoDB Compatibility</li>
+    <li><strong>Connection:</strong> MongoDB drivers via port 443 (HTTPS)</li>
+    <li><strong>Authentication:</strong> SCRAM-SHA-256 with GCP IAM integration</li>
+    <li><strong>Network:</strong> TLS-encrypted connections through corporate proxy</li>
+</ul>
+
+<h3>Key Advantages</h3>
+<ul>
+    <li>✅ <strong>API Compatibility:</strong> Existing MongoDB code works with minimal changes</li>
+    <li>✅ <strong>Managed Service:</strong> No infrastructure maintenance required</li>
+    <li>✅ <strong>Auto-scaling:</strong> Scales automatically based on demand</li>
+    <li>✅ <strong>Security:</strong> Built-in encryption and GCP security model</li>
+    <li>✅ <strong>Compliance:</strong> Meets enterprise governance requirements</li>
+</ul>
+
+<div class="section-divider"></div>
+
+<h2 id="technical-approach">🔧 Technical Approach</h2>
+
+<h3>Connection Configuration</h3>
+
+<div class="step-header">Firestore MongoDB Compatibility Endpoint</div>
+<div class="code-block">
+Endpoint: d08d6c5a-ae34-49fe-a581-15ffd78c6da7.europe-west2.firestore.goog
+Port: 443 (HTTPS)
+Protocol: TLS-encrypted MongoDB wire protocol
+</div>
+
+<div class="step-header">Connection String Format</div>
+<div class="code-block">
+mongodb://USERNAME:PASSWORD@d08d6c5a-ae34-49fe-a581-15ffd78c6da7.europe-west2.firestore.goog:443/DATABASE_ID?loadBalanced=true&authMechanism=SCRAM-SHA-256&tls=true&retryWrites=false
+</div>
+
+<h3>Network Configuration Changes</h3>
+
+<div class="warning-panel">
+    <strong>Critical Change:</strong> Unlike standard MongoDB (port 27017), Firestore uses port 443. Existing proxy configurations for MongoDB will not work and must be updated for HTTPS proxy settings.
+</div>
+
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Configuration Type</th>
+            <th>Current (MongoDB)</th>
+            <th>Required (Firestore)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Port</td>
+            <td>27017</td>
+            <td>443</td>
+        </tr>
+        <tr>
+            <td>Protocol</td>
+            <td>MongoDB Wire Protocol</td>
+            <td>TLS-encrypted MongoDB Wire Protocol</td>
+        </tr>
+        <tr>
+            <td>Proxy Type</td>
+            <td>HTTP Proxy</td>
+            <td>HTTPS Proxy</td>
+        </tr>
+        <tr>
+            <td>Load Balancing</td>
+            <td>Not Required</td>
+            <td>Required (loadBalanced=true)</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="section-divider"></div>
+
+<h2 id="poc-scope">🧪 POC Scope & Objectives</h2>
+
+<h3>Primary Objectives</h3>
+<ul class="checklist">
+    <li>Establish connectivity from corporate network to Firestore</li>
+    <li>Configure proxy settings for port 443 communication</li>
+    <li>Validate Spring Boot application compatibility</li>
+    <li>Test data migration from existing MongoDB</li>
+    <li>Measure performance characteristics</li>
+    <li>Validate security and compliance requirements</li>
+</ul>
+
+<h3>Success Criteria</h3>
+<ul>
+    <li><strong>Connectivity:</strong> Successful connection through corporate VPN/proxy</li>
+    <li><strong>Functionality:</strong> All CRUD operations working without code changes</li>
+    <li><strong>Performance:</strong> Response times within acceptable thresholds</li>
+    <li><strong>Data Integrity:</strong> Complete and accurate data migration</li>
+    <li><strong>Security:</strong> All security requirements met</li>
+</ul>
+
+<div class="section-divider"></div>
+
+<h2 id="implementation-phases">📅 Implementation Phases</h2>
+
+<h3>Phase 1: Infrastructure Setup & Connectivity (Week 1-2)</h3>
+<ul>
+    <li>Provision Firestore with MongoDB compatibility</li>
+    <li>Configure GCP IAM roles and database users</li>
+    <li>Update network/proxy configurations for port 443</li>
+    <li>Test basic connectivity from development environment</li>
+</ul>
+
+<h3>Phase 2: Application Configuration (Week 2-3)</h3>
+<ul>
+    <li>Update Spring Boot configuration for Firestore connection</li>
+    <li>Implement proxy-aware MongoDB client configuration</li>
+    <li>Update connection strings and authentication</li>
+    <li>Test application startup and basic operations</li>
+</ul>
+
+<h3>Phase 3: Data Migration Strategy (Week 3-4)</h3>
+<ul>
+    <li>Develop data migration scripts</li>
+    <li>Implement parallel data copy mechanism</li>
+    <li>Test data migration with sample datasets</li>
+    <li>Validate data integrity and consistency</li>
+</ul>
+
+<h3>Phase 4: Testing & Validation (Week 4-5)</h3>
+<ul>
+    <li>Comprehensive functional testing</li>
+    <li>Performance benchmarking</li>
+    <li>Security assessment</li>
+    <li>Load testing and stress testing</li>
+</ul>
+
+<h3>Phase 5: Production Readiness (Week 5-6)</h3>
+<ul>
+    <li>Production environment setup</li>
+    <li>Deployment procedures documentation</li>
+    <li>Monitoring and alerting configuration</li>
+    <li>Rollback procedures</li>
+</ul>
+
+<div class="section-divider"></div>
+
+<h2 id="technical-requirements">⚙️ Technical Requirements</h2>
+
+<h3>Infrastructure Requirements</h3>
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Component</th>
+            <th>Requirement</th>
+            <th>Notes</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Firestore Database</td>
+            <td>MongoDB compatibility enabled</td>
+            <td>Enterprise edition required</td>
+        </tr>
+        <tr>
+            <td>Network Access</td>
+            <td>Port 443 outbound to *.firestore.goog</td>
+            <td>Through corporate proxy</td>
+        </tr>
+        <tr>
+            <td>Authentication</td>
+            <td>SCRAM-SHA-256 with IAM integration</td>
+            <td>Database users with appropriate roles</td>
+        </tr>
+        <tr>
+            <td>TLS/SSL</td>
+            <td>TLS 1.2 or higher</td>
+            <td>Mandatory for all connections</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>Application Requirements</h3>
+<ul>
+    <li><strong>MongoDB Driver:</strong> Compatible version (Java 5.x supported)</li>
+    <li><strong>Spring Boot:</strong> Current version with MongoDB starter</li>
+    <li><strong>JVM Arguments:</strong> HTTPS proxy configuration</li>
+    <li><strong>Connection Pooling:</strong> Optimized for load-balanced connections</li>
+</ul>
+
+<h3>Security Requirements</h3>
+<ul>
+    <li>All connections must use TLS encryption</li>
+    <li>Database authentication via SCRAM-SHA-256</li>
+    <li>Network traffic through approved corporate proxy</li>
+    <li>Compliance with corporate security policies</li>
+</ul>
+
+<div class="section-divider"></div>
+
+<h2 id="risks-mitigation">⚠️ Risks & Mitigation Strategies</h2>
+
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Risk</th>
+            <th>Impact</th>
+            <th>Probability</th>
+            <th>Mitigation Strategy</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Proxy Configuration Issues</td>
+            <td><span class="priority-high">High</span></td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td>Early network testing, collaboration with network team, fallback proxy options</td>
+        </tr>
+        <tr>
+            <td>Performance Degradation</td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td><span class="priority-low">Low</span></td>
+            <td>Comprehensive performance testing, connection pool optimization</td>
+        </tr>
+        <tr>
+            <td>Data Migration Complexity</td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td>Incremental migration approach, comprehensive testing, rollback procedures</td>
+        </tr>
+        <tr>
+            <td>API Compatibility Issues</td>
+            <td><span class="priority-high">High</span></td>
+            <td><span class="priority-low">Low</span></td>
+            <td>Thorough testing of all MongoDB operations, fallback to native MongoDB if needed</td>
+        </tr>
+        <tr>
+            <td>Security Compliance</td>
+            <td><span class="priority-high">High</span></td>
+            <td><span class="priority-low">Low</span></td>
+            <td>Early security review, compliance validation, security team involvement</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="section-divider"></div>
+
+<h2 id="jira-breakdown">📊 Jira Epic & Story Breakdown</h2>
+
+<h3>Epic: MongoDB to Firestore Migration POC</h3>
+
+<h4>Infrastructure & Setup Stories</h4>
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Story Title</th>
+            <th>Description</th>
+            <th>Priority</th>
+            <th>Estimate</th>
+            <th>Acceptance Criteria</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Setup Firestore with MongoDB Compatibility</td>
+            <td>Provision and configure Firestore database with MongoDB compatibility in GCP</td>
+            <td><span class="priority-high">High</span></td>
+            <td>3 SP</td>
+            <td>Database provisioned, MongoDB compatibility enabled, connection endpoint available</td>
+        </tr>
+        <tr>
+            <td>Configure GCP IAM and Database Users</td>
+            <td>Create necessary IAM roles and database users for application access</td>
+            <td><span class="priority-high">High</span></td>
+            <td>2 SP</td>
+            <td>Database users created, appropriate permissions assigned, authentication working</td>
+        </tr>
+        <tr>
+            <td>Network Configuration for Port 443</td>
+            <td>Update corporate network/proxy settings to allow HTTPS traffic to Firestore</td>
+            <td><span class="priority-high">High</span></td>
+            <td>5 SP</td>
+            <td>Network connectivity established, proxy configuration updated, connection tests successful</td>
+        </tr>
+    </tbody>
+</table>
+
+<h4>Application Configuration Stories</h4>
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Story Title</th>
+            <th>Description</th>
+            <th>Priority</th>
+            <th>Estimate</th>
+            <th>Acceptance Criteria</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Update Spring Boot MongoDB Configuration</td>
+            <td>Modify application configuration to connect to Firestore with MongoDB compatibility</td>
+            <td><span class="priority-high">High</span></td>
+            <td>3 SP</td>
+            <td>Connection string updated, proxy settings configured, application starts successfully</td>
+        </tr>
+        <tr>
+            <td>Implement Proxy-Aware MongoDB Client</td>
+            <td>Create custom MongoDB client configuration that works with corporate proxy</td>
+            <td><span class="priority-high">High</span></td>
+            <td>5 SP</td>
+            <td>Custom client configuration implemented, proxy settings applied, connections stable</td>
+        </tr>
+        <tr>
+            <td>Validate CRUD Operations</td>
+            <td>Test all basic database operations (Create, Read, Update, Delete) with Firestore</td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td>3 SP</td>
+            <td>All CRUD operations working, no code changes required, functionality validated</td>
+        </tr>
+    </tbody>
+</table>
+
+<h4>Data Migration Stories</h4>
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Story Title</th>
+            <th>Description</th>
+            <th>Priority</th>
+            <th>Estimate</th>
+            <th>Acceptance Criteria</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Develop Data Migration Script</td>
+            <td>Create utility to migrate data from existing MongoDB to Firestore</td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td>8 SP</td>
+            <td>Migration script created, batch processing implemented, error handling included</td>
+        </tr>
+        <tr>
+            <td>Test Data Migration with Sample Data</td>
+            <td>Validate migration process with non-production data</td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td>5 SP</td>
+            <td>Sample data migrated successfully, data integrity validated, performance measured</td>
+        </tr>
+        <tr>
+            <td>Implement Data Validation Tools</td>
+            <td>Create tools to validate data consistency between source and target</td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td>5 SP</td>
+            <td>Validation tools created, consistency checks implemented, reporting available</td>
+        </tr>
+    </tbody>
+</table>
+
+<h4>Testing & Validation Stories</h4>
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Story Title</th>
+            <th>Description</th>
+            <th>Priority</th>
+            <th>Estimate</th>
+            <th>Acceptance Criteria</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Performance Benchmarking</td>
+            <td>Compare performance between MongoDB and Firestore implementations</td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td>5 SP</td>
+            <td>Performance tests executed, benchmarks documented, comparison analysis completed</td>
+        </tr>
+        <tr>
+            <td>Security Assessment</td>
+            <td>Validate security compliance and encryption requirements</td>
+            <td><span class="priority-high">High</span></td>
+            <td>3 SP</td>
+            <td>Security review completed, compliance validated, documentation updated</td>
+        </tr>
+        <tr>
+            <td>Load Testing</td>
+            <td>Test application performance under expected production load</td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td>5 SP</td>
+            <td>Load tests executed, performance thresholds met, scalability validated</td>
+        </tr>
+    </tbody>
+</table>
+
+<h4>Documentation & Knowledge Transfer Stories</h4>
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Story Title</th>
+            <th>Description</th>
+            <th>Priority</th>
+            <th>Estimate</th>
+            <th>Acceptance Criteria</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Create Migration Documentation</td>
+            <td>Document complete migration process and procedures</td>
+            <td><span class="priority-medium">Medium</span></td>
+            <td>3 SP</td>
+            <td>Comprehensive documentation created, procedures documented, runbooks available</td>
+        </tr>
+        <tr>
+            <td>Knowledge Transfer Session</td>
+            <td>Conduct team knowledge transfer on Firestore configuration and operations</td>
+            <td><span class="priority-low">Low</span></td>
+            <td>2 SP</td>
+            <td>KT session conducted, team trained, Q&A documented</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="info-panel">
+    <strong>Total Estimated Effort:</strong> ~58 Story Points (approximately 6-8 weeks for a small team)
+</div>
+
+<div class="section-divider"></div>
+
+<h2>📈 Success Metrics</h2>
+
+<h3>Technical Metrics</h3>
+<ul>
+    <li><strong>Connection Success Rate:</strong> >99% successful connections</li>
+    <li><strong>Query Performance:</strong> ≤20% performance degradation vs. current MongoDB</li>
+    <li><strong>Data Migration Accuracy:</strong> 100% data integrity validation</li>
+    <li><strong>Application Compatibility:</strong> Zero breaking changes to application code</li>
+</ul>
+
+<h3>Business Metrics</h3>
+<ul>
+    <li><strong>Governance Compliance:</strong> Full compliance with upgrade requirements</li>
+    <li><strong>Operational Overhead:</strong> Reduced maintenance effort</li>
+    <li><strong>Time to Market:</strong> Minimal impact on development velocity</li>
+</ul>
+
+<div class="success-panel">
+    <strong>Next Steps:</strong> Upon approval of this plan, the infrastructure setup tasks should begin immediately to establish basic connectivity and validate the technical approach.
+</div>
+
+</body>
+</html>

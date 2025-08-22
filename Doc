@@ -1,3 +1,39 @@
+#!/bin/bash
+
+# MongoDB mongosync version and platform
+MONGOSYNC_VERSION="1.9.0"
+PLATFORM="linux-x86_64"
+
+# URL to download
+DOWNLOAD_URL="https://downloads.mongodb.com/tools/mongosync/mongosync-${PLATFORM}-${MONGOSYNC_VERSION}.tgz"
+
+# Create temp dir
+mkdir -p /tmp/mongosync-install
+cd /tmp/mongosync-install || exit 1
+
+# Download
+echo "📥 Downloading mongosync $MONGOSYNC_VERSION..."
+curl -O "$DOWNLOAD_URL"
+
+# Extract
+echo "📦 Extracting..."
+tar -xvzf mongosync-${PLATFORM}-${MONGOSYNC_VERSION}.tgz
+
+# Move binary to /usr/local/bin
+echo "🚀 Installing mongosync to /usr/local/bin..."
+sudo mv mongosync-${PLATFORM}-${MONGOSYNC_VERSION}/bin/mongosync /usr/local/bin/
+
+# Check version
+echo "✅ Installed version:"
+mongosync --version
+
+# Cleanup
+cd ~
+rm -rf /tmp/mongosync-install
+
+echo "🎉 mongosync $MONGOSYNC_VERSION installed successfully."
+
+
 #!/usr/bin/env bash
 # ---------- EDIT THESE -------------
 export DB_UID="f116f93a-519c-208a-9a72-3ef6c9a1f081"   # from console

@@ -1,3 +1,78 @@
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+public class AppErrorController implements org.springframework.boot.web.servlet.error.ErrorController {
+
+  private static final String ATTR_STATUS = "jakarta.servlet.error.status_code";
+  private static final String ATTR_URI    = "jakarta.servlet.error.request_uri";
+
+  @RequestMapping("/error")
+  public Object handleError(HttpServletRequest req) {
+    Integer status = (Integer) req.getAttribute(ATTR_STATUS);
+    String uri = (String) req.getAttribute(ATTR_URI);
+    if (status == null) status = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+    if (uri == null) uri = "";
+
+    // Only customize 404. Let others return a minimal body.
+    if (status != 404) {
+      return ResponseEntity.status(status).body("Error " + status);
+    }
+
+    // API or management paths → JSON 404 (for scanners)
+    if (isApiOrMgmt(uri)) {
+      return ResponseEntity.status(404).body("Resource not found");
+    }
+
+    // File-like paths (have an extension) → JSON 404 (don’t leak index.html)
+    if (hasFileExtension(uri)) {
+      return ResponseEntity.status(404).body("Resource not found");
+    }
+
+    // Browser deep link (GET + Accept: text/html, not XHR) → load SPA
+    if (isHtmlNavigation(req)) {
+      return "forward:/index.html";
+    }
+
+    // Fallback JSON 404
+    return ResponseEntity.status(404).body("Resource not found");
+  }
+
+  private boolean isApiOrMgmt(String uri) {
+    return uri.startsWith("/api")
+        || uri.startsWith("/actuator")
+        || uri.startsWith("/v3")
+        || uri.startsWith("/swagger")
+        || uri.startsWith("/webjars")
+        || uri.startsWith("/assets")
+        || uri.startsWith("/sophis-")
+        || uri.startsWith("/vault-")
+        || uri.startsWith("/viewer-status")
+        || uri.startsWith("/enrich-status")
+        || uri.startsWith("/scenario-jobs")
+        || uri.startsWith("/multi-price-jobs")
+        || uri.startsWith("/legacy-metrics");
+  }
+
+  private boolean hasFileExtension(String uri) {
+    int slash = uri.lastIndexOf('/');
+    int dot = uri.lastIndexOf('.');
+    return dot > slash; // e.g., /a/b.js or /a.tar.gz
+  }
+
+  private boolean isHtmlNavigation(HttpServletRequest req) {
+    if (!"GET".equalsIgnoreCase(req.getMethod())) return false;
+    String accept = req.getHeader("Accept");
+    String xhr = req.getHeader("X-Requested-With");
+    boolean wantsHtml = accept != null && accept.contains("text/html");
+    boolean notAjax = xhr == null || !"XMLHttpRequest".equalsIgnoreCase(xhr);
+    return wantsHtml && notAjax;
+  }
+}
+
 #!/bin/bash
 
 # MongoDB mongosync version and platform

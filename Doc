@@ -1,3 +1,297 @@
+Skip to content
+ 
+Search Gists
+Search...
+All gists
+Back to GitHub
+@ramzy27
+ramzy27/gist:22cbcb55d35b50443f24d8800a90ff71 Secret
+Created 25 minutes ago
+Code
+Revisions
+1
+Clone this repository at &lt;script src=&quot;https://gist.github.com/ramzy27/22cbcb55d35b50443f24d8800a90ff71.js&quot;&gt;&lt;/script&gt;
+<script src="https://gist.github.com/ramzy27/22cbcb55d35b50443f24d8800a90ff71.js"></script>
+adrs
+gistfile1.txt
+# ADR-001 — Job Definitions Sourcing
+
+## Status
+Accepted
+
+## Context
+The Metadata service must provide the list of expected jobs (per snap, per business date) in a reliable and deterministic way.
+
+Historically, job definitions were derived from Mongo data and implicitly tied to legacy systems (Sophis, Control-M) and later Airflow.
+
+The new system requires:
+- clear ownership of job definitions
+- independence from runtime/orchestration systems
+- support for business concepts such as snaps and period-based occurrences (daily, weekly, quarter, year-end)
+
+## Options Considered
+
+### Option 1 — Continue sourcing from Mongo (legacy continuation)
+**Description**  
+Reuse and extend existing Mongo-based job definitions.
+
+**Pros**
+- Low initial effort
+- No new component introduced
+
+**Cons**
+- Inherits legacy constraints and ambiguity
+- Poor versioning and auditability
+- Implicit coupling with legacy systems
+- Hard to evolve cleanly
+
+---
+
+### Option 2 — Correlate job definitions to Airflow
+**Description**  
+Derive job definitions from Airflow DAGs and metadata.
+
+**Pros**
+- Strong alignment with actual execution
+- Single operational system
+
+**Cons**
+- Business metadata hard to express and maintain in DAG code
+- Tight coupling to runtime/orchestration
+- Not suitable for business-driven concepts (snaps, period ends)
+- Limits independent evolution of the Metadata service
+
+---
+
+### Option 3 — Maintain a separate Job Registry (dissociated)
+**Description**  
+Create a dedicated job registry owned by the Metadata domain, independent of Airflow and legacy systems.
+
+**Pros**
+- Clear separation of responsibilities
+- Explicit and stable business model
+- Independent evolution
+- Better governance and readability
+
+**Cons**
+- New registry to maintain
+- Requires a distribution and versioning mechanism
+
+## Decision
+Adopt **Option 3**: maintain a **separate Job Registry**, fully dissociated from Airflow and legacy systems.
+
+## Consequences
+- Job definitions become an explicit Metadata responsibility
+- Runtime systems (e.g. Airflow) are consumers, not sources of truth
+- Additional effort is required to manage versioning and distribution
+- Enables a clean, future-proof model for snaps and business occurrences
+
+
+# ADR-002 — Job Definitions Storage and Distribution
+
+## Status
+Accepted
+
+## Context
+Job definitions must be:
+- versioned and auditable
+- safely promoted across GCP environments (dev / uat / prod)
+- easy to review and rollback
+- readable by the Metadata service at runtime
+
+The organization already operates Firestore for metadata storage and GCS across environments.
+
+## Options Considered
+
+### Option 1 — Store job definitions in Firestore
+**Description**  
+Persist job definitions in Firestore and expose them through the Metadata API.
+
+**Pros**
+- Reuses existing infrastructure and APIs
+- Allows dynamic updates without redeployment
+- Potential UI-based editing
+
+**Cons**
+- Weak native versioning and diffing
+- Changes harder to review
+- Higher risk of configuration drift
+- Rollback and promotion are operationally complex
+- Less deterministic across environments
+
+---
+
+### Option 2 — Store job definitions in Git and deploy to GCS
+**Description**  
+Maintain job definitions in a dedicated Git repository, validate them in CI, and publish immutable releases to GCS.  
+The Metadata service reads definitions from GCS.
+
+**Pros**
+- Strong versioning and auditability (Git)
+- PR-based review and approval
+- Deterministic releases
+- Easy rollback
+- Clear promotion flow across environments
+- No runtime mutation of definitions
+
+**Cons**
+- Changes require a deployment cycle
+- No direct UI-based editing
+
+## Decision
+Adopt **Option 2**: store job definitions in **Git** and distribute them via **immutable releases in GCS**, consumed by the Metadata service.
+
+## Consequences
+- Job definitions are managed as code
+- All changes are reviewed, validated, and versioned
+- Promotion across dev / uat / prod uses the same immutable artifacts
+- Runtime behavior becomes deterministic and auditable
+- Firestore remains available for runtime data or audit materialization, but not as the source of truth for definitions
+
+
+# ADR-003 — Job Definition Data Model and Expected Jobs API
+
+## Status
+Accepted
+
+## Context
+The Metadata service must expose a deterministic list of jobs expected for a given business date and snap.  
+Job definitions must support:
+- multiple snaps per job
+- business-based occurrences (daily, weekly, quarterly, year-end)
+- snap-specific frequency and routing
+- independence from runtime execution systems
+
+A stable and explicit data model is required to avoid ambiguity and runtime interpretation.
+
+## Options Considered
+
+### Option 1 — Minimal model derived at runtime
+**Description**  
+Store minimal job information and compute snaps, frequency, and routing dynamically at runtime.
+
+**Pros**
+- Smaller static definitions
+- High flexibility
+
+**Cons**
+- Hidden logic and implicit behavior
+- Hard to audit and reproduce historical expectations
+- Increased risk of inconsistent results
+- Difficult to reason about expected jobs
+
+---
+
+### Option 2 — Explicit job definition model with snap targets
+**Description**  
+Define a canonical job model where each job explicitly declares:
+- its snaps
+- occurrence rules per snap
+- expected runs
+- routing metadata
+
+**Pros**
+- Clear and explicit business intent
+- Deterministic evaluation
+- Easy to audit and reason about
+- Stable contract for consumers
+
+**Cons**
+- Slightly more verbose definitions
+- Requires upfront schema design
+
+---
+
+## Decision
+Adopt **Option 2**: define an explicit canonical job definition model with snap-specific targets and occurrence rules.
+
+Expose a single API:
+- `getExpectedJobs(businessDate, snaps[])`
+
+## Consequences
+- Job definitions become self-describing and deterministic
+- Expected jobs can be reproduced for any historical date
+- Runtime systems consume a stable and well-defined contract
+- Additional upfront schema discipline is required
+
+
+# ADR-004 — Promotion, Versioning, and Runtime Safeguards
+
+## Status
+Accepted
+
+## Context
+Job definitions must be safely promoted across GCP environments (dev, uat, prod) while ensuring:
+- determinism at runtime
+- safe rollback
+- no partial or inconsistent updates
+- traceability of which version was used on a given day
+
+The Metadata service must not depend on mutable or implicit "latest" configurations.
+
+## Options Considered
+
+### Option 1 — Load latest available definitions at runtime
+**Description**  
+Always load the most recent job definitions from storage.
+
+**Pros**
+- Simple implementation
+- Immediate availability of changes
+
+**Cons**
+- Non-deterministic behavior
+- Race conditions between deployments and runtime calls
+- Difficult rollback
+- Hard to audit historical behavior
+
+---
+
+### Option 2 — Immutable releases with environment-specific pointers
+**Description**  
+Publish job definitions as immutable releases.  
+Use an environment-specific pointer (channel) to select the active release.
+
+**Pros**
+- Deterministic runtime behavior
+- Safe and explicit promotion
+- Simple rollback by repointing
+- Clear audit trail
+
+**Cons**
+- Slightly more complex deployment process
+- Requires release and channel management
+
+---
+
+## Decision
+Adopt **Option 2**: use immutable job definition releases with environment-specific channel pointers.
+
+The Metadata service always reads the release referenced by its environment channel.
+
+## Consequences
+- Runtime behavior is deterministic and reproducible
+- Rollback is fast and low-risk
+- Promotion across environments uses identical artifacts
+- The active catalog version is always explicit and auditable
+@ramzy27
+Comment
+ 
+Leave a comment
+ 
+Footer
+© 2026 GitHub, Inc.
+Footer navigation
+Terms
+Privacy
+Security
+Status
+Community
+Docs
+Contact
+Manage cookies
+Do not share my personal information
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
